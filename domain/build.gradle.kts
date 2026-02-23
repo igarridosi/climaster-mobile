@@ -1,0 +1,28 @@
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "com.climaster.domain"
+    compileSdk = 34
+
+    defaultConfig {
+        minSdk = 24
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    // Core modulua behar dugu 'Resource' klasea erabiltzeko
+    implementation(project(":core"))
+
+    // Coroutines (Flow erabiltzeko)
+    implementation(libs.kotlinx.coroutines.core)
+}
