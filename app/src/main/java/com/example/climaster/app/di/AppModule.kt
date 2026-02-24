@@ -5,13 +5,16 @@ import androidx.room.Room
 import com.climaster.data.local.UserFeedbackDao
 import com.climaster.data.local.WeatherDao
 import com.climaster.data.local.WeatherDatabase
+import com.climaster.data.remote.GroqApi
 import com.climaster.data.remote.WeatherApi
 import com.climaster.data.repository.UserFeedbackRepositoryImpl
 import com.climaster.data.repository.WeatherRepositoryImpl
+import com.climaster.domain.repository.AgentRepository
 import com.climaster.domain.repository.UserFeedbackRepository
 import com.climaster.domain.repository.WeatherRepository
 import com.climaster.domain.usecase.GetWeatherUseCase
 import com.example.climaster.data.remote.GeocodingApi
+import com.example.climaster.data.repository.AgentRepositoryImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -94,5 +97,21 @@ object AppModule {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(GeocodingApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGroqApi(): GroqApi {
+        return Retrofit.Builder()
+            .baseUrl("https://api.groq.com/openai/v1/") // OpenAI formatua
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(GroqApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAgentRepository(api: GroqApi): AgentRepository {
+        return AgentRepositoryImpl(api)
     }
 }

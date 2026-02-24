@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -42,13 +43,12 @@ fun LocationSearchOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.2f))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() }
     ) {
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 80.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                .padding(top = 180.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
                 .background(Color.White)

@@ -1,11 +1,11 @@
 package com.climaster.domain.model
 
 enum class WeatherCondition {
-    SUNNY,
-    CLOUDY,
-    RAINY,
-    STORMY,
-    SNOWY,
-    FOGGY,
-    UNKNOWN // Segurtasunagatik beti jarri behar da
+    EGUZKITSUA,
+    HODEITSUA,
+    EURITSUA,
+    EKAITSUA,
+    ELURTSUA,
+    LAINOKOA,
+    EZEZAGUNA // Segurtasunagatik beti jarri behar da
 }

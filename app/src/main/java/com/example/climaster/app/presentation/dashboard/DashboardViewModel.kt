@@ -17,12 +17,14 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import com.climaster.domain.usecase.GenerateInsightUseCase
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getWeatherUseCase: GetWeatherUseCase,
     private val feedbackRepository: UserFeedbackRepository,
-    private val geocodingApi: GeocodingApi
+    private val geocodingApi: GeocodingApi,
+    private val generateInsightUseCase: GenerateInsightUseCase
 ) : ViewModel() {
 
     private val _weatherState = MutableStateFlow<Resource<Weather>>(Resource.Loading)
@@ -34,21 +36,8 @@ class DashboardViewModel @Inject constructor(
     private val _searchResults = MutableStateFlow<Resource<List<LocationResult>>>(Resource.Success(emptyList()))
     val searchResults: StateFlow<Resource<List<LocationResult>>> = _searchResults
 
-    val recommendationText: StateFlow<String> = _weatherState.map { state ->
-        if (state is Resource.Success) {
-            val temp = state.data.temperature
-            val condition = state.data.condition
-            when {
-                temp < 10 -> "Oso hotz dago. Txamarra lodia eta eskularruak eraman!"
-                temp in 10.0..18.0 -> "Giro freskoa. Jertse bat nahikoa izan daiteke."
-                temp > 25 -> "Bero handia. Ur asko edan eta itzaletan egon."
-                condition == com.climaster.domain.model.WeatherCondition.RAINY -> "Euria ari du. Ez ahaztu aterkia!"
-                else -> "Giro atsegina. Gozatu egunaz!"
-            }
-        } else {
-            "Datuak aztertzen..."
-        }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, "Kargatzen...")
+    private val _recommendationState = MutableStateFlow<Resource<String>>(Resource.Loading)
+    val recommendationState: StateFlow<Resource<String>> = _recommendationState
 
     private var searchJob: Job? = null
 
@@ -56,19 +45,35 @@ class DashboardViewModel @Inject constructor(
         loadWeather(43.31, -1.98, "Donostia")
     }
 
-    // PARAMETRO BERRIA: customName
     fun loadWeather(lat: Double, lon: Double, customName: String? = null) {
         viewModelScope.launch {
             _weatherState.value = Resource.Loading
             getWeatherUseCase(lat, lon).collect { result ->
-                if (result is Resource.Success && customName != null) {
-                    // APIak "Donostia, Euskadi, España" ematen badu, lehenengo hitza bakarrik hartu:
-                    val cleanName = customName.split(",").first().trim()
-                    // Gure izen propioa injektatu (APIarena alde batera utziz)
-                    _weatherState.value = Resource.Success(result.data.copy(cityName = cleanName))
-                } else {
-                    _weatherState.value = result
+                if (result is Resource.Success) {
+                    val weatherData = result.data
+                    // Izena pertsonalizatu
+                    val finalData = if (customName != null) {
+                        weatherData.copy(cityName = customName.split(",").first().trim())
+                    } else {
+                        weatherData
+                    }
+                    _weatherState.value = Resource.Success(finalData)
+
+                    // --- MAGIA HEMEN DAGO ---
+                    // Eguraldia ondo kargatu denean, AGENTEARI deitu
+                    fetchAgentInsight(finalData)
+
+                } else if (result is Resource.Error) {
+                    _weatherState.value = result // Errorea pasatu UI-ari
                 }
+            }
+        }
+    }
+
+    private fun fetchAgentInsight(weather: Weather) {
+        viewModelScope.launch {
+            generateInsightUseCase(weather).collect { insightResult ->
+                _recommendationState.value = insightResult
             }
         }
     }

@@ -17,10 +17,10 @@ import kotlin.random.Random
 @Composable
 fun AnimatedWeatherBackground(condition: WeatherCondition, modifier: Modifier = Modifier) {
     when (condition) {
-        WeatherCondition.SUNNY -> SunnyScene(modifier)
-        WeatherCondition.CLOUDY -> CloudyScene(modifier)
-        WeatherCondition.RAINY, WeatherCondition.STORMY -> RainyScene(modifier)
-        WeatherCondition.SNOWY -> SnowyScene(modifier)
+        WeatherCondition.EGUZKITSUA -> SunnyScene(modifier)
+        WeatherCondition.HODEITSUA -> CloudyScene(modifier)
+        WeatherCondition.EURITSUA, WeatherCondition.EKAITSUA -> RainyScene(modifier)
+        WeatherCondition.ELURTSUA -> SnowyScene(modifier)
         else -> { /* Ezer ez (garbia) */ }
     }
 }
@@ -45,8 +45,8 @@ private fun SunnyScene(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.fillMaxSize()) {
         val width = size.width
         val height = size.height
-        val sunRadius = width * 0.7f // Eguzki oso handia
-        val sunCenter = Offset(width / 3f, height) // Pantailaren beheko erdialdean
+        val sunRadius = width * 0.6f // Eguzki oso handia
+        val sunCenter = Offset(width / 6f, height) // Pantailaren beheko erdialdean
 
         // 1. Eguzkiaren Koroa (Distira gardena)
         drawCircle(
@@ -115,7 +115,7 @@ private fun RainyScene(modifier: Modifier = Modifier) {
         label = "phase"
     )
 
-    val particles = remember { List(80) { Particle(Random.nextFloat(), Random.nextFloat(), Random.nextFloat() * 1f + 1.5f, Random.nextFloat() * 3f + 2f) } }
+    val particles = remember { List(70) { Particle(Random.nextFloat(), Random.nextFloat(), Random.nextFloat() * 1f + 0.5f, Random.nextFloat() * 3f + 3f) } }
 
     Canvas(modifier = modifier.fillMaxSize()) {
         particles.forEach { p ->

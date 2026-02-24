@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Air
 import androidx.compose.material.icons.rounded.LocationOn
@@ -21,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -35,9 +37,12 @@ import com.climaster.domain.model.Weather
 import com.climaster.domain.model.WeatherCondition
 import com.example.climaster.app.presentation.components.AnimatedWeatherBackground
 import com.example.climaster.app.presentation.components.LocationSearchOverlay
+import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import com.example.climaster.app.presentation.components.WeatherLoadingAnimation
+import com.example.climaster.app.presentation.components.shimmerEffect
 
 // ---------------------------------------------------------
 // KOLORE DINAMIKOEN FUNTZIO MAGIKOA (EGURALDIA + ORDUA)
@@ -45,27 +50,27 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 fun getDynamicWeatherColors(condition: WeatherCondition, time: LocalDateTime): List<Color> {
     val hour = time.hour
-    val isMorning = hour in 6..12
-    val isAfternoon = hour in 13..19
+    val isMorning = hour in 6..16
+    val isAfternoon = hour in 17..19
 
     return when (condition) {
-        WeatherCondition.SUNNY -> {
+        WeatherCondition.EGUZKITSUA -> {
             when {
                 isMorning -> listOf(Color(0xFF56CCF2), Color(0xFF2F80ED)) // Goiza: Urdin argi distiratsua
                 isAfternoon -> listOf(Color(0xFFFF7E5F), Color(0xFFFEB47B)) // Ilunabarra: Laranja epela
                 else -> listOf(Color(0xFF141E30), Color(0xFF243B55)) // Gaua: Urdin espaziala
             }
         }
-        WeatherCondition.CLOUDY -> {
+        WeatherCondition.HODEITSUA -> {
             when {
                 isMorning || isAfternoon -> listOf(Color(0xFFbdc3c7), Color(0xFF2c3e50)) // Eguna: Gris urdinxka
                 else -> listOf(Color(0xFF0f2027), Color(0xFF203a43)) // Gaua: Gris oso iluna
             }
         }
-        WeatherCondition.RAINY, WeatherCondition.STORMY -> {
+        WeatherCondition.EURITSUA, WeatherCondition.EKAITSUA -> {
             listOf(Color(0xFF4b6cb7), Color(0xFF182848)) // Euria: Urdin goibela eta iluna
         }
-        WeatherCondition.SNOWY -> {
+        WeatherCondition.ELURTSUA -> {
             when {
                 isMorning || isAfternoon -> listOf(Color(0xFFC3DAFD), Color(0xFFA3B9D2)) // Eguna: Zuri/Urdin izoztua
                 else -> listOf(Color(0xFF37474F), Color(0xFF000000)) // Gaua: Elur iluna
@@ -79,13 +84,32 @@ fun getDynamicWeatherColors(condition: WeatherCondition, time: LocalDateTime): L
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val uiState by viewModel.weatherState.collectAsState()
-    val recommendation by viewModel.recommendationText.collectAsState()
+    val recommendationState by viewModel.recommendationState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
 
-    var showLocationSearch by remember { mutableStateOf(false) }
+    // ---------------------------------------------------------
+    // KOREOGRAFIA ANIMAZIOA (Staggered Animation States)
+    // ---------------------------------------------------------
+    var showLocationSearch by remember { mutableStateOf(false) } // Logika orokorra
+    var isBlurred by remember { mutableStateOf(false) }          // Blur-aren egoera
+    var isOverlayVisible by remember { mutableStateOf(false) }   // Txartelaren egoera
+
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    // Hemen gertatzen da magia: Denborak banatzen ditugu.
+    LaunchedEffect(showLocationSearch) {
+        if (showLocationSearch) {
+            isBlurred = true           // 1. Hasi lausotzen atzeko planoa
+            delay(200)                 // 2. Itxaron 200 milisegundo Blur-a finkatu arte
+            isOverlayVisible = true    // 3. Atera txartela garbi-garbi
+        } else {
+            isOverlayVisible = false   // 1. Ezkutatu txartela lehenik
+            delay(350)                 // 2. Itxaron txartelaren animazioa (350ms) amaitu arte
+            isBlurred = false          // 3. Argi ezazu atzeko planoa
+        }
+    }
 
     // 1. ANIMATE BACKGROUND COLORS (Klima eta orduaren arabera)
     val targetColors = if (uiState is Resource.Success) {
@@ -123,7 +147,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
             ) {
                 when (val state = uiState) {
                     is Resource.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
+                        WeatherLoadingAnimation(modifier = Modifier.align(Alignment.Center))
                     }
                     is Resource.Error -> { /* Errorea */ }
                     is Resource.Success -> {
@@ -131,7 +155,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                             AnimatedWeatherBackground(condition = state.data.condition)
                             WeatherDashboardContent(
                                 weather = state.data,
-                                recommendation = recommendation,
+                                recommendationState = recommendationState,
                                 onFeedback = { sensation ->
                                     viewModel.submitThermalFeedback(sensation)
                                     coroutineScope.launch {
@@ -148,13 +172,13 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
             // 3. BILATZAILEA ANIMAZIO "SMOOTH COOL" BATEKIN SARTZEN DA
             AnimatedVisibility(
-                visible = showLocationSearch,
+                visible = isOverlayVisible,
                 // ENTER: Behetik pixka bat igo, handitu eta agertu modu leunean
                 enter = slideInVertically(
                     initialOffsetY = { it / 8 }, // Pantailaren %12tik gora hasten da
-                    animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
                 ) + fadeIn(
-                    animationSpec = tween(durationMillis = 400)
+                    animationSpec = tween(durationMillis = 200)
                 ) + scaleIn(
                     initialScale = 0.9f,
                     animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
@@ -188,7 +212,10 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WeatherDashboardContent(
-    weather: Weather, recommendation: String, onFeedback: (com.climaster.domain.model.ThermalSensation) -> Unit, onLocationClick: () -> Unit
+    weather: Weather,
+    recommendationState: Resource<String>,
+    onFeedback: (com.climaster.domain.model.ThermalSensation) -> Unit,
+    onLocationClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
@@ -203,17 +230,56 @@ fun WeatherDashboardContent(
             Text(text = weather.cityName, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
         }
         Spacer(modifier = Modifier.height(32.dp))
+        // --- GOMENDIOA (IA MOTORRA) ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 60.dp) // Altuera minimoa, ez dadin kolapsatu
+                .glassmorphic(cornerRadius = 16.dp, alpha = 0.2f)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // EGOERA BERRIA KUDEATU
+            when (recommendationState) {
+                is Resource.Loading -> {
+                    // Kargatzen ari den bitartean, Shimmer efektu txiki bat
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .height(18.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .shimmerEffect() // Zure Shimmer modifikatzailea
+                    )
+                }
+                is Resource.Error -> {
+                    Text(
+                        text = "⚠️ Ezin izan da aholkua sortu",
+                        color = Color.Yellow,
+                        fontSize = 14.sp
+                    )
+                }
+                is Resource.Success -> {
+                    Text(
+                        text = "💡 ${recommendationState.data}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        /*
         Box(
             modifier = Modifier.fillMaxWidth().glassmorphic(cornerRadius = 16.dp, alpha = 0.2f).padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(text = "💡 $recommendation", style = MaterialTheme.typography.bodyLarge, color = Color.White, fontWeight = FontWeight.Medium)
         }
+         */
         Spacer(modifier = Modifier.height(32.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = "${weather.temperature.toInt()}°", style = MaterialTheme.typography.displayLarge.copy(fontSize = 100.sp, fontWeight = FontWeight.Bold), color = Color.White)
             Text(text = weather.condition.name, style = MaterialTheme.typography.headlineMedium, color = Color.White.copy(alpha=0.9f))
-            Text(text = "Eguneratua: ${weather.lastUpdated.format(DateTimeFormatter.ofPattern("HH:mm"))}", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
         }
         Spacer(modifier = Modifier.height(32.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

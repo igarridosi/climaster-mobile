@@ -47,11 +47,11 @@ fun WeatherEntity.toDomain(): Weather {
 // String -> Enum bihurtzailea
 private fun parseCondition(condition: String): WeatherCondition {
     return when(condition.lowercase()) {
-        "clear" -> WeatherCondition.SUNNY
-        "clouds" -> WeatherCondition.CLOUDY
-        "rain", "drizzle" -> WeatherCondition.RAINY
-        "thunderstorm" -> WeatherCondition.STORMY
-        "snow" -> WeatherCondition.SNOWY
-        else -> WeatherCondition.UNKNOWN
+        "clear" -> WeatherCondition.EGUZKITSUA
+        "clouds" -> WeatherCondition.HODEITSUA
+        "rain", "drizzle" -> WeatherCondition.EURITSUA
+        "thunderstorm" -> WeatherCondition.EKAITSUA
+        "snow" -> WeatherCondition.ELURTSUA
+        else -> WeatherCondition.EZEZAGUNA
     }
 }
