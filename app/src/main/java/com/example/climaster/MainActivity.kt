@@ -1,47 +1,29 @@
 package com.example.climaster
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.climaster.ui.theme.CliMasterTheme
+import androidx.annotation.RequiresApi
+import androidx.compose.material3.MaterialTheme
+import com.example.climaster.app.presentation.dashboard.DashboardScreen
+import com.example.climaster.ui.theme.CliMasterTheme // Zure Theme originala (ui.theme barruan dagoena)
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            // Irudian ikusten da 'ui.theme' paketea daukazula, beraz
+            // ziurrenik CliMasterTheme hor barruan dago.
             CliMasterTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                // DashboardScreen deitzen dugu
+                DashboardScreen()
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CliMasterTheme {
-        Greeting("Android")
     }
 }
