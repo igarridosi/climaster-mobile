@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     implementation("androidx.compose.material:material-icons-extended:<compose_version>")
+    implementation("androidx.compose.material3:material3:1.2.0")
 
     // --- GURE MODULUAK ---
     implementation(project(":core"))

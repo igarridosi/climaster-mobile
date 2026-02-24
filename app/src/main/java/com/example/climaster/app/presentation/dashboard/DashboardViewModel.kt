@@ -14,20 +14,39 @@ import com.climaster.domain.model.ThermalSensation
 import com.climaster.domain.model.UserThermalFeedback
 import com.climaster.domain.repository.UserFeedbackRepository
 import java.util.UUID
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
-@HiltViewModel // Hau ezinbestekoa da Hilt-ek jakiteko ViewModel bat dela
+@HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getWeatherUseCase: GetWeatherUseCase,
     private val feedbackRepository: UserFeedbackRepository
 ) : ViewModel() {
 
-    // UI Egoera (StateFlow)
     private val _weatherState = MutableStateFlow<Resource<Weather>>(Resource.Loading)
     val weatherState: StateFlow<Resource<Weather>> = _weatherState
 
+    // Gomendio motorra
+    val recommendationText: StateFlow<String> = _weatherState.map { state ->
+        if (state is Resource.Success) {
+            val temp = state.data.temperature
+            val condition = state.data.condition
+
+            when {
+                temp < 10 -> "Oso hotz dago. Txamarra lodia eta eskularruak eraman!"
+                temp in 10.0..18.0 -> "Giro freskoa. Jertse bat nahikoa izan daiteke."
+                temp > 25 -> "Bero handia. Ur asko edan eta itzaletan egon."
+                condition == com.climaster.domain.model.WeatherCondition.RAINY -> "Euria ari du. Ez ahaztu aterkia!"
+                else -> "Giro atsegina. Gozatu egunaz!"
+            }
+        } else {
+            "Datuak aztertzen..."
+        }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, "Kargatzen...")
+
     init {
-        // Hasieratzean eguraldia kargatu (Adibidez: Bilbo)
-        loadWeather(43.2627, -2.9253)
+        loadWeather(43.31, -1.98)
     }
 
     fun loadWeather(lat: Double, lon: Double) {
@@ -38,9 +57,8 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    // Funtzio berria: Feedback-a bidaltzeko
     fun submitThermalFeedback(sensation: ThermalSensation) {
-        val currentWeather = (weatherState.value as? Resource.Success)?.data ?: return
+        val currentWeather = (_weatherState.value as? Resource.Success)?.data ?: return
 
         viewModelScope.launch {
             val feedback = UserThermalFeedback(
@@ -48,15 +66,32 @@ class DashboardViewModel @Inject constructor(
                 sensation = sensation,
                 actualTemp = currentWeather.temperature,
                 humidity = currentWeather.humidity
-                // timestamp automatikoki jartzen da
             )
-
-            // Repositorioari deitu (Offline-first gordeko da)
             feedbackRepository.submitFeedback(feedback)
-
-            // Hemen UI-ari abisatu genezake (adibidez, Snackbar bat erakusteko)
-            // Baina oraingoz logean utziko dugu
             println("Feedback gordeta: $sensation")
+        }
+    }
+
+    // Funtzio berria: Hiriak bilatzeko (Prototipo UXrako)
+    fun searchCity(cityName: String) {
+        // Benetako proiektu batean hemen Geocoding API bat deituko genuke
+        // (adib. api.openweathermap.org/geo/1.0/direct?q=London)
+        // UX-a probatzeko, hiri nagusien mapa bat erabiliko dugu:
+        val cities = mapOf(
+            "madrid" to Pair(40.4168, -3.7038),
+            "donostia" to Pair(43.3183, -1.9812),
+            "bilbao" to Pair(43.2630, -2.9350),
+            "vitoria" to Pair(42.8467, -2.6716),
+            "london" to Pair(51.5074, -0.1278),
+            "new york" to Pair(40.7128, -74.0060),
+            "tokyo" to Pair(35.6762, 139.6503),
+            "caracal" to Pair(44.1157446, 24.3424754),
+            "munich" to Pair(53.2275529, -114.0500485),
+        )
+
+        val coords = cities[cityName.lowercase().trim()]
+        if (coords != null) {
+            loadWeather(coords.first, coords.second)
         }
     }
 }

@@ -3,6 +3,7 @@ package com.example.climaster.app.presentation.dashboard
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,10 +23,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.climaster.app.presentation.components.ThermalFeedbackButtons
-import com.climaster.app.presentation.theme.* // Ziurtatu GlassmorphismModifier hemen dagoela
+import com.climaster.app.presentation.theme.DeepPurple
+import com.climaster.app.presentation.theme.MidnightBlue
+import com.climaster.app.presentation.theme.RoyalBlue
+import com.climaster.app.presentation.theme.SkyBlue
+import com.climaster.app.presentation.theme.TextWhite
+import com.climaster.app.presentation.theme.glassmorphic
 import com.climaster.core.util.Resource
 import com.climaster.domain.model.Weather
-import com.example.climaster.app.presentation.dashboard.DashboardViewModel
+import com.example.climaster.app.presentation.components.AnimatedWeatherBackground
+import com.example.climaster.app.presentation.components.LocationSearchDialog
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -34,42 +43,85 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.weatherState.collectAsState()
+    val recommendation by viewModel.recommendationText.collectAsState()
 
-    // Atzeko plano gradientea (Goiz/Gau arabera aldatu daiteke etorkizunean)
+    // UX FEEDBACK-ARAKO ALDAGAIAK
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    // KOKAPEN BILATZAILEAREN EGOERA (Berria)
+    var showLocationSearch by remember { mutableStateOf(false) }
+
     val backgroundBrush = Brush.verticalGradient(
         colors = listOf(MidnightBlue, RoyalBlue, DeepPurple)
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundBrush)
-            .statusBarsPadding() // Goiko barra errespetatzeko
-    ) {
-        when (val state = uiState) {
-            is Resource.Loading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = SkyBlue
-                )
-            }
-            is Resource.Error -> {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(text = "Errorea datuak kargatzean", color = Color.Red)
-                    Text(text = state.message, color = TextWhite, style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { viewModel.loadWeather(43.31, -1.98) }) {
-                        Text("Saiatu berriro")
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent // Atzeko planoa mantentzeko
+    ) { paddingValues ->
+        // DIALOG-A ERAKUTSI BALDIN BADA EGIA (Berria)
+        if (showLocationSearch) {
+            LocationSearchDialog(
+                onDismiss = { showLocationSearch = false },
+                onCitySelected = { cityName ->
+                    viewModel.searchCity(cityName)
+                }
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundBrush)
+                .padding(paddingValues)
+        ) {
+            when (val state = uiState) {
+                is Resource.Loading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = SkyBlue
+                    )
+                }
+                is Resource.Error -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "Errorea datuak kargatzean", color = Color.Red)
+                        Text(text = state.message, color = TextWhite, style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = { viewModel.loadWeather(43.31, -1.98) }) {
+                            Text("Saiatu berriro")
+                        }
                     }
                 }
-            }
-            is Resource.Success -> {
-                WeatherDashboardContent(
-                    weather = state.data,
-                    onFeedback = { viewModel.submitThermalFeedback(it) }
-                )
+                is Resource.Success -> {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // 1. ANIMAZIOA
+                        AnimatedWeatherBackground(condition = state.data.condition)
+
+                        // 2. EDUKIA
+                        WeatherDashboardContent(
+                            weather = state.data,
+                            recommendation = recommendation,
+                            onFeedback = { sensation ->
+                                // 1. ViewModel-ari abisatu
+                                viewModel.submitThermalFeedback(sensation)
+
+                                // 2. UX FEEDBACK: Erabiltzaileari mezua erakutsi
+                                coroutineScope.launch {
+                                    val text = if(sensation.name == "COLD") "Uff, hotza! Gorde da." else "Beroa erregistratu da."
+                                    // Aurreko mezua ezkutatu berrira pasatzeko
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(
+                                        message = text,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            },
+                            onLocationClick = { showLocationSearch = true }
+                        )
+                    }
+                }
             }
         }
     }
@@ -79,27 +131,30 @@ fun DashboardScreen(
 @Composable
 fun WeatherDashboardContent(
     weather: Weather,
-    onFeedback: (com.climaster.domain.model.ThermalSensation) -> Unit
+    recommendation: String,
+    onFeedback: (com.climaster.domain.model.ThermalSensation) -> Unit,
+    onLocationClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
-            .verticalScroll(rememberScrollState()), // Pantaila txikietan scroll egiteko
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // --- 1. GOIBURUA (KOKAPENA) ---
+        // --- 1. GOIBURUA ---
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .glassmorphic(cornerRadius = 50.dp, alpha = 0.1f)
+                .clickable { onLocationClick() }
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = SkyBlue)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = weather.cityName, // "Europe/Madrid" bada ere, hemen agertuko da
+                text = weather.cityName,
                 style = MaterialTheme.typography.titleMedium,
                 color = TextWhite,
                 fontWeight = FontWeight.SemiBold
@@ -108,9 +163,26 @@ fun WeatherDashboardContent(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- 2. HERO SECTION (TENPERATURA) ---
+        // --- GOMENDIOA (IA MOTORRA) ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassmorphic(cornerRadius = 16.dp, alpha = 0.2f)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "💡 $recommendation",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // --- 2. HERO SECTION ---
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Egunen batean hemen Lottie animazio bat jarriko dugu
             Text(
                 text = "${weather.temperature.toInt()}°",
                 style = MaterialTheme.typography.displayLarge.copy(
@@ -133,7 +205,7 @@ fun WeatherDashboardContent(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- 3. DETAILS GRID (GLASS CARDS) ---
+        // --- 3. DETAILS GRID ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -152,7 +224,7 @@ fun WeatherDashboardContent(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // --- 4. INTERAKZIOA (FEEDBACK) ---
+        // --- 4. INTERAKZIOA ---
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Sentsazio Termikoa doitu",
