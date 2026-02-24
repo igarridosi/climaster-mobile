@@ -11,6 +11,7 @@ import com.climaster.data.repository.WeatherRepositoryImpl
 import com.climaster.domain.repository.UserFeedbackRepository
 import com.climaster.domain.repository.WeatherRepository
 import com.climaster.domain.usecase.GetWeatherUseCase
+import com.example.climaster.data.remote.GeocodingApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -83,5 +84,15 @@ object AppModule {
         )
             .fallbackToDestructiveMigration() // <--- GEHITU HAU (Bertsioa aldatu dugulako)
             .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGeocodingApi(): GeocodingApi {
+        return Retrofit.Builder()
+            .baseUrl("https://geocode.maps.co/") // API berriaren erroa
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(GeocodingApi::class.java)
     }
 }
