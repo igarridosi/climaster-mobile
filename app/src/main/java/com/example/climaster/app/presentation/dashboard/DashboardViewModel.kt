@@ -10,10 +10,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.climaster.domain.model.ThermalSensation
+import com.climaster.domain.model.UserThermalFeedback
+import com.climaster.domain.repository.UserFeedbackRepository
+import java.util.UUID
 
 @HiltViewModel // Hau ezinbestekoa da Hilt-ek jakiteko ViewModel bat dela
 class DashboardViewModel @Inject constructor(
-    private val getWeatherUseCase: GetWeatherUseCase
+    private val getWeatherUseCase: GetWeatherUseCase,
+    private val feedbackRepository: UserFeedbackRepository
 ) : ViewModel() {
 
     // UI Egoera (StateFlow)
@@ -30,6 +35,28 @@ class DashboardViewModel @Inject constructor(
             getWeatherUseCase(lat, lon).collect { result ->
                 _weatherState.value = result
             }
+        }
+    }
+
+    // Funtzio berria: Feedback-a bidaltzeko
+    fun submitThermalFeedback(sensation: ThermalSensation) {
+        val currentWeather = (weatherState.value as? Resource.Success)?.data ?: return
+
+        viewModelScope.launch {
+            val feedback = UserThermalFeedback(
+                id = UUID.randomUUID().toString(),
+                sensation = sensation,
+                actualTemp = currentWeather.temperature,
+                humidity = currentWeather.humidity
+                // timestamp automatikoki jartzen da
+            )
+
+            // Repositorioari deitu (Offline-first gordeko da)
+            feedbackRepository.submitFeedback(feedback)
+
+            // Hemen UI-ari abisatu genezake (adibidez, Snackbar bat erakusteko)
+            // Baina oraingoz logean utziko dugu
+            println("Feedback gordeta: $sensation")
         }
     }
 }

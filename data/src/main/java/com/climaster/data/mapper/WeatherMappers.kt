@@ -12,12 +12,17 @@ import java.time.ZoneId
 
 // DTO -> Entity (Saretik DB-ra)
 fun WeatherDto.toEntity(): WeatherEntity {
+    // One Call API-ak ez du hiriaren izena ematen zuzenean.
+    // Timezone erabiltzen dugu (adib: "Europe/Madrid") edo izen generiko bat.
+    // Etorkizunean Geocoding API erabiliko dugu izena lortzeko.
+    val locationName = timezone.substringAfterLast("/").replace("_", " ")
+
     return WeatherEntity(
-        temperature = main.temp,
-        condition = weather.firstOrNull()?.main ?: "Unknown",
-        humidity = main.humidity,
-        windSpeed = wind.speed,
-        cityName = cityName,
+        temperature = current.temp,
+        condition = current.weather.firstOrNull()?.main ?: "Unknown",
+        humidity = current.humidity,
+        windSpeed = current.windSpeed,
+        cityName = locationName, // "Madrid" agertuko da koordenatu horiekin
         lastUpdated = System.currentTimeMillis()
     )
 }

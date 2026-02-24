@@ -47,3 +47,7 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
 }
+
+hilt {
+    enableAggregatingTask = false
+}

@@ -2,10 +2,13 @@ package com.example.climaster.app.di
 
 import android.app.Application
 import androidx.room.Room
+import com.climaster.data.local.UserFeedbackDao
 import com.climaster.data.local.WeatherDao
 import com.climaster.data.local.WeatherDatabase
 import com.climaster.data.remote.WeatherApi
+import com.climaster.data.repository.UserFeedbackRepositoryImpl
 import com.climaster.data.repository.WeatherRepositoryImpl
+import com.climaster.domain.repository.UserFeedbackRepository
 import com.climaster.domain.repository.WeatherRepository
 import com.climaster.domain.usecase.GetWeatherUseCase
 import dagger.Module
@@ -25,21 +28,10 @@ object AppModule {
     @Singleton
     fun provideWeatherApi(): WeatherApi {
         return Retrofit.Builder()
-            .baseUrl("https://api.openweathermap.org/data/2.5/") // Base URL
+            .baseUrl("https://api.openweathermap.org/data/3.0/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(WeatherApi::class.java)
-    }
-
-    // --- DATABASE (ROOM) ---
-    @Provides
-    @Singleton
-    fun provideWeatherDatabase(app: Application): WeatherDatabase {
-        return Room.databaseBuilder(
-            app,
-            WeatherDatabase::class.java,
-            "weather_db"
-        ).build()
     }
 
     @Provides
@@ -65,5 +57,31 @@ object AppModule {
     @Singleton
     fun provideGetWeatherUseCase(repository: WeatherRepository): GetWeatherUseCase {
         return GetWeatherUseCase(repository)
+    }
+
+    // --- USER FEEDBACK ---
+    @Provides
+    @Singleton
+    fun provideUserFeedbackDao(db: WeatherDatabase): UserFeedbackDao {
+        return db.userFeedbackDao
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserFeedbackRepository(dao: UserFeedbackDao): UserFeedbackRepository {
+        return UserFeedbackRepositoryImpl(dao)
+    }
+
+    // GARRANTZITSUA: Database builder-a eguneratu behar da migrazio suntsitzailea onartzeko
+    @Provides
+    @Singleton
+    fun provideWeatherDatabase(app: Application): WeatherDatabase {
+        return Room.databaseBuilder(
+            app,
+            WeatherDatabase::class.java,
+            "weather_db"
+        )
+            .fallbackToDestructiveMigration() // <--- GEHITU HAU (Bertsioa aldatu dugulako)
+            .build()
     }
 }

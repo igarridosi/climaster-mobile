@@ -84,8 +84,16 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
 
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    implementation("androidx.compose.material:material-icons-extended:<compose_version>")
+
     // --- GURE MODULUAK ---
     implementation(project(":core"))
     implementation(project(":domain"))
     implementation(project(":data"))
+}
+
+hilt {
+    enableAggregatingTask = false
 }
