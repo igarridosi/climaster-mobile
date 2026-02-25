@@ -13,4 +13,6 @@ interface AgentRepository {
         weather: Weather,
         userHistory: List<UserThermalFeedback>
     ): Flow<Resource<AiInsight>>
+
+    fun askQuestion(question: String, weather: Weather): Flow<Resource<String>>
 }

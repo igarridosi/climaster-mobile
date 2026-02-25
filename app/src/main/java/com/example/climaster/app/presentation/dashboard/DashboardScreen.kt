@@ -12,10 +12,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -132,9 +137,23 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
         label = "blur_anim"
     )
 
+    val chatAnswerState by viewModel.chatAnswerState.collectAsState()
+    var showChatOverlay by remember { mutableStateOf(false) }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent
+        containerColor = Color.Transparent,
+        floatingActionButton = {
+            // MAGIC FAB BOTOIA
+            FloatingActionButton(
+                onClick = { showChatOverlay = true },
+                containerColor = Color(0xFF4FC3F7), // Zeru urdina
+                contentColor = Color.White,
+                shape = CircleShape
+            ) {
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Galdetu Agenteari")
+            }
+        }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
 
@@ -203,6 +222,21 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     onLocationSelected = { name, lat, lon ->
                         viewModel.selectLocation(name, lat, lon)
                         showLocationSearch = false
+                    }
+                )
+            }
+            // 4. TXAT OVERLAY (Ask the Agent)
+            AnimatedVisibility(
+                visible = showChatOverlay,
+                enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400, easing = FastOutSlowInEasing)) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut()
+            ) {
+                AskAgentOverlay(
+                    answerState = chatAnswerState,
+                    onAsk = { question -> viewModel.askAgent(question) },
+                    onDismiss = {
+                        showChatOverlay = false
+                        viewModel.clearChat()
                     }
                 )
             }
@@ -331,5 +365,80 @@ fun DetailItem(icon: ImageVector, label: String, value: String) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = value, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+    }
+}
+
+@Composable
+fun AskAgentOverlay(
+    answerState: Resource<String>?,
+    onAsk: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.4f))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                .background(Brush.verticalGradient(listOf(Color(0xFF1E3C72).copy(alpha=0.95f), Color(0xFF2A5298).copy(alpha=0.95f))))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .padding(24.dp)
+                .navigationBarsPadding() // Teklatua errespetatzeko
+        ) {
+            Text("Galdetu Agenteari ✨", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Erantzunaren kaxa
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 80.dp)
+                    .glassmorphic(cornerRadius = 16.dp, alpha = 0.1f)
+                    .padding(16.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                when (answerState) {
+                    null -> Text("Adibidez: Gaur arratsaldean hondartzara joan naiteke?", color = Color.White.copy(0.6f))
+                    is Resource.Loading -> CircularProgressIndicator(color = Color(0xFF4FC3F7), modifier = Modifier.size(24.dp))
+                    is Resource.Error -> Text("Errorea: ${answerState.message}", color = Color.Red)
+                    is Resource.Success -> Text(answerState.data, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Input eremua
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = { Text("Idatzi hemen...", color = Color.White.copy(0.5f)) },
+                trailingIcon = {
+                    IconButton(onClick = {
+                        if(text.isNotBlank()) {
+                            onAsk(text)
+                            text = ""
+                        }
+                    }) {
+                        Icon(Icons.Rounded.Send, contentDescription = "Bidali", tint = Color(0xFF4FC3F7))
+                    }
+                },
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color(0xFF4FC3F7),
+                    unfocusedIndicatorColor = Color.White.copy(alpha = 0.3f),
+                    cursorColor = Color(0xFF4FC3F7),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White
+                ),
+                shape = CircleShape,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

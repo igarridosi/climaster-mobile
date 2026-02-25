@@ -8,6 +8,7 @@ import com.climaster.domain.model.ThermalSensation
 import com.climaster.domain.model.UserThermalFeedback
 import com.climaster.domain.model.Weather
 import com.climaster.domain.repository.UserFeedbackRepository
+import com.climaster.domain.usecase.AskAgentUseCase
 import com.climaster.domain.usecase.GetWeatherUseCase
 import com.example.climaster.data.remote.GeocodingApi
 import com.example.climaster.domain.model.LocationResult
@@ -25,8 +26,13 @@ class DashboardViewModel @Inject constructor(
     private val getWeatherUseCase: GetWeatherUseCase,
     private val feedbackRepository: UserFeedbackRepository,
     private val geocodingApi: GeocodingApi,
-    private val generateInsightUseCase: GenerateInsightUseCase
+    private val generateInsightUseCase: GenerateInsightUseCase,
+    private val askAgentUseCase: AskAgentUseCase
 ) : ViewModel() {
+
+    // --- TXAT-AREN EGOERAK ---
+    private val _chatAnswerState = MutableStateFlow<Resource<String>?>(null)
+    val chatAnswerState: StateFlow<Resource<String>?> = _chatAnswerState
 
     private val _weatherState = MutableStateFlow<Resource<Weather>>(Resource.Loading)
     val weatherState: StateFlow<Resource<Weather>> = _weatherState
@@ -125,5 +131,19 @@ class DashboardViewModel @Inject constructor(
             )
             feedbackRepository.submitFeedback(feedback)
         }
+    }
+
+    fun askAgent(question: String) {
+        val currentWeather = (_weatherState.value as? Resource.Success)?.data ?: return
+        viewModelScope.launch {
+            askAgentUseCase(question, currentWeather).collect { result ->
+                _chatAnswerState.value = result
+            }
+        }
+    }
+
+    // Txata garbitzeko
+    fun clearChat() {
+        _chatAnswerState.value = null
     }
 }
