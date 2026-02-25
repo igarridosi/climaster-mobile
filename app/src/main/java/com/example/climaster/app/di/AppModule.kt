@@ -5,16 +5,16 @@ import androidx.room.Room
 import com.climaster.data.local.UserFeedbackDao
 import com.climaster.data.local.WeatherDao
 import com.climaster.data.local.WeatherDatabase
-import com.climaster.data.remote.WeatherApi
 import com.climaster.data.repository.UserFeedbackRepositoryImpl
-import com.climaster.data.repository.WeatherRepositoryImpl
 import com.climaster.domain.repository.AgentRepository
 import com.climaster.domain.repository.UserFeedbackRepository
 import com.climaster.domain.repository.WeatherRepository
 import com.climaster.domain.usecase.GetWeatherUseCase
 import com.example.climaster.data.remote.GeocodingApi
 import com.example.climaster.data.remote.GroqApi
+import com.example.climaster.data.remote.WeatherApi
 import com.example.climaster.data.repository.AgentRepositoryImpl
+import com.example.climaster.data.repository.WeatherRepositoryImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,7 +32,7 @@ object AppModule {
     @Singleton
     fun provideWeatherApi(): WeatherApi {
         return Retrofit.Builder()
-            .baseUrl("https://api.openweathermap.org/data/3.0/")
+            .baseUrl("https://api.pirateweather.net/") // <--- URL BERRIA
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(WeatherApi::class.java)

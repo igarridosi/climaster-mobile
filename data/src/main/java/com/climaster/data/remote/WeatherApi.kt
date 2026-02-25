@@ -1,18 +1,18 @@
-package com.climaster.data.remote
+package com.example.climaster.data.remote
 
-import com.climaster.data.remote.dto.WeatherDto
+import com.example.climaster.data.remote.dto.PirateWeatherResponse
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface WeatherApi {
-
-    // ALDAKETA: Endpoint berria 'onecall' da
-    @GET("onecall")
-    suspend fun getCurrentWeather(
-        @Query("lat") lat: Double,
-        @Query("lon") lon: Double,
-        @Query("appid") apiKey: String = "51e154b61c72032ef18f3b7eea32a959", // Zure gakoa hemen
-        @Query("units") units: String = "metric",
-        @Query("exclude") exclude: String = "minutely,alerts" // Datu batzuk baztertzeko (aukerakoa)
-    ): WeatherDto
+    // Pirate Weather Endpoint-a
+    @GET("forecast/{apiKey}/{lat},{lon}")
+    suspend fun getWeather(
+        @Path("apiKey") apiKey: String,
+        @Path("lat") lat: Double,
+        @Path("lon") lon: Double,
+        @Query("units") units: String = "ca", // "ca" = Celsius eta km/h
+        @Query("exclude") exclude: String = "minutely,hourly,alerts" // Datu soberakinak kendu
+    ): PirateWeatherResponse
 }

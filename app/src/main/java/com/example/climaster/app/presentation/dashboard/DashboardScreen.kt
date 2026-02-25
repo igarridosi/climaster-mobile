@@ -49,6 +49,7 @@ import java.time.LocalDateTime
 import kotlinx.coroutines.launch
 import com.example.climaster.app.presentation.components.WeatherLoadingAnimation
 import com.example.climaster.app.presentation.components.shimmerEffect
+import java.time.format.DateTimeFormatter
 
 // ---------------------------------------------------------
 // KOLORE DINAMIKOEN FUNTZIO MAGIKOA (EGURALDIA + ORDUA)
@@ -67,6 +68,13 @@ fun getDynamicWeatherColors(condition: WeatherCondition, time: LocalDateTime): L
                 else -> listOf(Color(0xFF141E30), Color(0xFF243B55)) // Gaua: Urdin espaziala
             }
         }
+        WeatherCondition.HODEITARTEAK -> { // <--- BERRIA: Eguzkia + Hodeiak
+            when {
+                isMorning -> listOf(Color(0xFF8CA6DB), Color(0xFFB9935A)) // Urdin epela eta urre kolorea
+                isAfternoon -> listOf(Color(0xFFD38312), Color(0xFFA83279)) // Arratsalde more-laranja
+                else -> listOf(Color(0xFF2C3E50), Color(0xFF3498DB)) // Gau lasaia
+            }
+        }
         WeatherCondition.HODEITSUA -> {
             when {
                 isMorning || isAfternoon -> listOf(Color(0xFFbdc3c7), Color(0xFF2c3e50)) // Eguna: Gris urdinxka
@@ -82,7 +90,23 @@ fun getDynamicWeatherColors(condition: WeatherCondition, time: LocalDateTime): L
                 else -> listOf(Color(0xFF37474F), Color(0xFF000000)) // Gaua: Elur iluna
             }
         }
+        WeatherCondition.HAIZETSUA -> { // <--- BERRIA: Haizea
+            listOf(Color(0xFFBBD2C5), Color(0xFF536976)) // Gris berdexka hegalaria
+        }
+        WeatherCondition.LAINOTSUA -> { // <--- BERRIA: Behe-lainoa
+            listOf(Color(0xFF757F9A), Color(0xFFD7DDE8)) // Gris zilarra
+        }
         else -> listOf(Color(0xFF1A237E), Color(0xFF311B92)) // Lehenetsia
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun getLocalTimeInLocation(timezoneId: String): LocalDateTime {
+    return try {
+        val zoneId = java.time.ZoneId.of(timezoneId)
+        java.time.ZonedDateTime.now(zoneId).toLocalDateTime()
+    } catch (e: Exception) {
+        LocalDateTime.now() // Fallback
     }
 }
 
@@ -93,71 +117,69 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val recommendationState by viewModel.recommendationState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val chatAnswerState by viewModel.chatAnswerState.collectAsState()
 
-    // ---------------------------------------------------------
-    // KOREOGRAFIA ANIMAZIOA (Staggered Animation States)
-    // ---------------------------------------------------------
-    var showLocationSearch by remember { mutableStateOf(false) } // Logika orokorra
-    var isBlurred by remember { mutableStateOf(false) }          // Blur-aren egoera
-    var isOverlayVisible by remember { mutableStateOf(false) }   // Txartelaren egoera
+    var showLocationSearch by remember { mutableStateOf(false) }
+    var isBlurred by remember { mutableStateOf(false) }
+    var isOverlayVisible by remember { mutableStateOf(false) }
+    var showChatOverlay by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Hemen gertatzen da magia: Denborak banatzen ditugu.
     LaunchedEffect(showLocationSearch) {
         if (showLocationSearch) {
-            isBlurred = true           // 1. Hasi lausotzen atzeko planoa
-            delay(200)                 // 2. Itxaron 200 milisegundo Blur-a finkatu arte
-            isOverlayVisible = true    // 3. Atera txartela garbi-garbi
+            isBlurred = true; delay(200); isOverlayVisible = true
         } else {
-            isOverlayVisible = false   // 1. Ezkutatu txartela lehenik
-            delay(350)                 // 2. Itxaron txartelaren animazioa (350ms) amaitu arte
-            isBlurred = false          // 3. Argi ezazu atzeko planoa
+            isOverlayVisible = false; delay(350); isBlurred = false
         }
     }
 
-    // 1. ANIMATE BACKGROUND COLORS (Klima eta orduaren arabera)
     val targetColors = if (uiState is Resource.Success) {
         val weather = (uiState as Resource.Success).data
-        getDynamicWeatherColors(weather.condition, weather.lastUpdated)
+
+        // ORDU LOKALA KALKULATU
+        val localTime = getLocalTimeInLocation(weather.timezone)
+
+        // LOG bat jarri dezakezu hemen ziurtatzeko: println("Ordu Lokala: $localTime")
+
+        getDynamicWeatherColors(weather.condition, localTime) // <--- ziurtatu localTime pasatzen duzula
     } else {
-        listOf(Color(0xFF141E30), Color(0xFF243B55)) // Defektuz gaua kargatzean
+        listOf(Color(0xFF141E30), Color(0xFF243B55))
     }
 
-    // Trantsizio leuna kolore batetik bestera (Adibidez Bilbotik Tokyora pasatzean)
     val colorTop by animateColorAsState(targetValue = targetColors[0], animationSpec = tween(1500), label = "topColor")
     val colorBottom by animateColorAsState(targetValue = targetColors[1], animationSpec = tween(1500), label = "bottomColor")
     val backgroundBrush = Brush.verticalGradient(colors = listOf(colorTop, colorBottom))
 
-    // 2. BLUR ANIMAZIOA
     val blurRadius by animateDpAsState(
-        targetValue = if (showLocationSearch) 20.dp else 0.dp,
-        animationSpec = tween(durationMillis = 300),
-        label = "blur_anim"
+        targetValue = if (isBlurred || showChatOverlay) 25.dp else 0.dp,
+        animationSpec = tween(durationMillis = 400), label = "blur_anim"
     )
-
-    val chatAnswerState by viewModel.chatAnswerState.collectAsState()
-    var showChatOverlay by remember { mutableStateOf(false) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent,
         floatingActionButton = {
-            // MAGIC FAB BOTOIA
-            FloatingActionButton(
-                onClick = { showChatOverlay = true },
-                containerColor = Color(0xFF4FC3F7), // Zeru urdina
-                contentColor = Color.White,
-                shape = CircleShape
+            // HOBEKUNTZA 1: FAB botoia ezkutatu txata irekitzean
+            AnimatedVisibility(
+                visible = !showChatOverlay,
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut()
             ) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Galdetu Agenteari")
+                FloatingActionButton(
+                    onClick = { showChatOverlay = true },
+                    containerColor = Color(0xFF4FC3F7),
+                    contentColor = Color.White,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Rounded.AutoAwesome, contentDescription = "Galdetu Agenteari")
+                }
             }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
 
-            // ATZEKO PLANOA (Kolore animatuak eta Blur-a)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -166,23 +188,37 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     .padding(paddingValues)
             ) {
                 when (val state = uiState) {
-                    is Resource.Loading -> {
-                        WeatherLoadingAnimation(modifier = Modifier.align(Alignment.Center))
+                    is Resource.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
+                    is Resource.Error -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Arazo bat egon da 😢",
+                                    color = Color.Red,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = state.message ?: "Errore ezezaguna",
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { viewModel.loadWeather(43.31, -1.98, "Donostia") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4FC3F7))
+                                ) {
+                                    Text("Saiatu Berriro")
+                                }
+                            }
+                        }
                     }
-                    is Resource.Error -> { /* Errorea */ }
                     is Resource.Success -> {
                         Box(modifier = Modifier.fillMaxSize()) {
                             AnimatedWeatherBackground(condition = state.data.condition)
                             WeatherDashboardContent(
                                 weather = state.data,
                                 recommendationState = recommendationState,
-                                onFeedback = { sensation ->
-                                    viewModel.submitThermalFeedback(sensation)
-                                    coroutineScope.launch {
-                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                        snackbarHostState.showSnackbar("Gordeta!")
-                                    }
-                                },
                                 onLocationClick = { showLocationSearch = true }
                             )
                         }
@@ -190,54 +226,32 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                 }
             }
 
-            // 3. BILATZAILEA ANIMAZIO "SMOOTH COOL" BATEKIN SARTZEN DA
+            // Bilatzailea
             AnimatedVisibility(
                 visible = isOverlayVisible,
-                // ENTER: Behetik pixka bat igo, handitu eta agertu modu leunean
-                enter = slideInVertically(
-                    initialOffsetY = { it / 8 }, // Pantailaren %12tik gora hasten da
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                ) + fadeIn(
-                    animationSpec = tween(durationMillis = 200)
-                ) + scaleIn(
-                    initialScale = 0.9f,
-                    animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                ),
-                // EXIT: Behera jaitsi pixka bat, txikitu eta desagertu modu azkarragoan
-                exit = slideOutVertically(
-                    targetOffsetY = { it / 8 },
-                    animationSpec = tween(durationMillis = 350, easing = FastOutLinearInEasing)
-                ) + fadeOut(
-                    animationSpec = tween(durationMillis = 250)
-                ) + scaleOut(
-                    targetScale = 0.9f,
-                    animationSpec = tween(durationMillis = 350)
-                )
+                enter = slideInVertically(initialOffsetY = { it / 8 }, animationSpec = tween(400, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.9f, animationSpec = tween(400, easing = FastOutSlowInEasing)),
+                exit = slideOutVertically(targetOffsetY = { it / 8 }, animationSpec = tween(350, easing = FastOutLinearInEasing)) + fadeOut(animationSpec = tween(250)) + scaleOut(targetScale = 0.9f, animationSpec = tween(350))
             ) {
                 LocationSearchOverlay(
-                    searchQuery = searchQuery,
-                    searchResults = searchResults,
+                    searchQuery = searchQuery, searchResults = searchResults,
                     onQueryChange = { viewModel.onSearchQueryChanged(it) },
                     onDismiss = { showLocationSearch = false },
-                    onLocationSelected = { name, lat, lon ->
-                        viewModel.selectLocation(name, lat, lon)
-                        showLocationSearch = false
-                    }
+                    onLocationSelected = { name, lat, lon -> viewModel.selectLocation(name, lat, lon); showLocationSearch = false }
                 )
             }
-            // 4. TXAT OVERLAY (Ask the Agent)
+
+            // Txata
             AnimatedVisibility(
                 visible = showChatOverlay,
                 enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400, easing = FastOutSlowInEasing)) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut()
             ) {
+                val cityName = (uiState as? Resource.Success)?.data?.cityName ?: "Ezezaguna"
                 AskAgentOverlay(
+                    cityName = cityName, // HOBEKUNTZA 2: Hiria pasatu
                     answerState = chatAnswerState,
                     onAsk = { question -> viewModel.askAgent(question) },
-                    onDismiss = {
-                        showChatOverlay = false
-                        viewModel.clearChat()
-                    }
+                    onDismiss = { showChatOverlay = false; viewModel.clearChat() }
                 )
             }
         }
@@ -248,10 +262,18 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 @Composable
 fun WeatherDashboardContent(
     weather: Weather,
-    recommendationState: Resource<AiInsight>,
-    onFeedback: (ThermalSensation) -> Unit,
+    recommendationState: Resource<com.climaster.domain.model.AiInsight>,
     onLocationClick: () -> Unit
 ) {
+    val localTime = getLocalTimeInLocation(weather.timezone)
+    Text(
+        text = "Bertako ordua: ${localTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+        style = MaterialTheme.typography.bodySmall,
+        color = Color.White.copy(alpha = 0.6f)
+    )
+
+    var isExpanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween
@@ -264,13 +286,18 @@ fun WeatherDashboardContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = weather.cityName, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
         }
-        Spacer(modifier = Modifier.height(32.dp))
-        // --- GOMENDIOA ETA BIZIMODUA (IA MOTORRA) ---
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // AI GOMENDIOA
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .glassmorphic(cornerRadius = 24.dp, alpha = 0.2f)
-                .padding(20.dp)
+                .animateContentSize(animationSpec = tween(400, easing = FastOutSlowInEasing)) // <--- ANIMAZIO AUTOMATIKOA
+                .glassmorphic(cornerRadius = if (isExpanded) 32.dp else 24.dp, alpha = 0.2f)
+                .clickable { isExpanded = !isExpanded } // KLIK EGITEAN EGOERA ALDATU
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
         ) {
             when (recommendationState) {
                 is Resource.Loading -> {
@@ -278,79 +305,145 @@ fun WeatherDashboardContent(
                         Box(modifier = Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row {
-                            Box(modifier = Modifier.width(80.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).shimmerEffect())
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(modifier = Modifier.width(100.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).shimmerEffect())
-                        }
                     }
                 }
-                is Resource.Error -> {
-                    Text("⚠️ AI Laguntzailea ez dago erabilgarri.", color = Color(0xFFFFB74D), fontSize = 14.sp)
-                }
+                is Resource.Error -> Text("⚠️ AI Laguntzailea ez dago erabilgarri.", color = Color(0xFFFFB74D), fontSize = 14.sp)
                 is Resource.Success -> {
                     val insight = recommendationState.data
-                    Column {
-                        // Briefing nagusia
+                    Column(horizontalAlignment = Alignment.Start) {
+                        // BRIEFING (Beti ikusgai)
                         Text(
                             text = "💡 ${insight.briefing}",
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.White,
                             fontWeight = FontWeight.Medium,
-                            lineHeight = 22.sp
+                            lineHeight = 22.sp,
+                            maxLines = if (isExpanded) Int.MAX_VALUE else 3 // Zabaltzean dena erakutsi
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Action Chips (Arropa eta Ekintza)
+                        // CHIPS (Beti ikusgai, baina zabaltzean xehetasun gehiago izan litzakete)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Arropa Chip-a
+                            // Arropa Chip
                             Row(
                                 modifier = Modifier
+                                    .weight(1f)
                                     .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(text = insight.clothingIcon, fontSize = 16.sp)
+                                Text(text = insight.clothingIcon, fontSize = 20.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = insight.clothing, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(text = insight.clothing, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 14.sp)
                             }
 
-                            // Ekintza Chip-a
+                            // Ekintza Chip
                             Row(
                                 modifier = Modifier
+                                    .weight(1f)
                                     .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(text = insight.activityIcon, fontSize = 16.sp)
+                                Text(text = insight.activityIcon, fontSize = 20.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = insight.activity, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(text = insight.activity, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 14.sp)
                             }
+                        }
+
+                        // --- EDUKI GEHIGARRIA (ZABALTZEAN BAKARRIK AGERTZEN DA) ---
+                        if (isExpanded) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Divider(color = Color.White.copy(alpha = 0.2f))
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "Analisi Xehea:",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // ORAIN AI-AREN TESTUA ERABILTZEN DUGU:
+                            Text(
+                                text = insight.detailedAnalysis, // <--- DINAMIKOA
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.95f),
+                                lineHeight = 20.sp // Irakurgarritasuna hobetzeko
+                            )
                         }
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(32.dp))
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = "${weather.temperature.toInt()}°", style = MaterialTheme.typography.displayLarge.copy(fontSize = 100.sp, fontWeight = FontWeight.Bold), color = Color.White)
             Text(text = weather.condition.name, style = MaterialTheme.typography.headlineMedium, color = Color.White.copy(alpha=0.9f))
         }
-        Spacer(modifier = Modifier.height(32.dp))
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             DetailItem(icon = Icons.Rounded.WaterDrop, label = "Hezetasuna", value = "${weather.humidity}%")
             DetailItem(icon = Icons.Rounded.Air, label = "Haizea", value = "${weather.windSpeed} km/h")
         }
-        Spacer(modifier = Modifier.height(48.dp))
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Sentsazio Termikoa doitu", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
-            Spacer(modifier = Modifier.height(16.dp))
-            ThermalFeedbackButtons(onFeedbackSelected = onFeedback)
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text("Hurrengo Egunak", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.align(Alignment.Start))
+        Spacer(modifier = Modifier.height(8.dp))
+        FiveDayForecastUI(forecastList = weather.forecast) // <--- PASATU DATUAK HEMEN
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+// ------------------------------------------------------------------
+// OSAGAI BERRIA: 5 Eguneko Iragarpena
+// ------------------------------------------------------------------
+@Composable
+fun FiveDayForecastUI(forecastList: List<com.climaster.domain.model.DailyForecast>) {
+    // Lista hutsa bada (kargatzen ari bada oraindik)
+    if (forecastList.isEmpty()) {
+        CircularProgressIndicator(color = Color.White)
+        return
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassmorphic(cornerRadius = 24.dp, alpha = 0.15f)
+            .padding(vertical = 16.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        forecastList.forEachIndexed { index, day ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = day.emoji, fontSize = 28.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = day.dayName, color = Color.White.copy(alpha=0.7f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row {
+                    Text(text = "${day.maxTemp}°", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "${day.minTemp}°", color = Color.White.copy(alpha=0.5f), fontSize = 15.sp)
+                }
+            }
+
+            if (index < forecastList.size - 1) {
+                Box(
+                    modifier = Modifier
+                        .height(40.dp)
+                        .width(1.dp)
+                        .background(Color.White.copy(alpha = 0.2f))
+                )
+            }
         }
     }
 }
@@ -368,8 +461,12 @@ fun DetailItem(icon: ImageVector, label: String, value: String) {
     }
 }
 
+// ------------------------------------------------------------------
+// TXAT OSAGAIA: Orain Kokapen Etiketa barne du
+// ------------------------------------------------------------------
 @Composable
 fun AskAgentOverlay(
+    cityName: String, // HOBEKUNTZA 2
     answerState: Resource<String>?,
     onAsk: (String) -> Unit,
     onDismiss: () -> Unit
@@ -377,31 +474,42 @@ fun AskAgentOverlay(
     var text by remember { mutableStateOf("") }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.4f))
+        modifier = Modifier.fillMaxSize()
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismiss() },
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
                 .background(Brush.verticalGradient(listOf(Color(0xFF1E3C72).copy(alpha=0.95f), Color(0xFF2A5298).copy(alpha=0.95f))))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .padding(24.dp)
-                .navigationBarsPadding() // Teklatua errespetatzeko
+                .navigationBarsPadding()
         ) {
-            Text("Galdetu Agenteari ✨", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            // Izenburua eta Kokapen Etiketa
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Galdetu Agenteari ✨", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+                // Kokapen Etiketa (Badge)
+                Row(
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = Color(0xFF4FC3F7), modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(cityName, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Erantzunaren kaxa
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 80.dp)
-                    .glassmorphic(cornerRadius = 16.dp, alpha = 0.1f)
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp).glassmorphic(cornerRadius = 16.dp, alpha = 0.1f).padding(16.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 when (answerState) {
@@ -414,18 +522,12 @@ fun AskAgentOverlay(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Input eremua
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 placeholder = { Text("Idatzi hemen...", color = Color.White.copy(0.5f)) },
                 trailingIcon = {
-                    IconButton(onClick = {
-                        if(text.isNotBlank()) {
-                            onAsk(text)
-                            text = ""
-                        }
-                    }) {
+                    IconButton(onClick = { if(text.isNotBlank()) { onAsk(text); text = "" } }) {
                         Icon(Icons.Rounded.Send, contentDescription = "Bidali", tint = Color(0xFF4FC3F7))
                     }
                 },

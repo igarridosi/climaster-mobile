@@ -26,4 +26,5 @@ dependencies {
     // Coroutines (Flow erabiltzeko)
     implementation(libs.kotlinx.coroutines.core)
     implementation("javax.inject:javax.inject:1")
+    implementation(libs.androidx.annotation.jvm)
 }

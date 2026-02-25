@@ -13,6 +13,7 @@ junit = "4.13.2"
 junit-ext = "1.1.5"
 espresso = "3.5.1"
 hilt-navigation-compose = "1.2.0"
+annotation-jvm = "1.9.1"
 
 [libraries]
 # Core
@@ -54,6 +55,7 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hilt-navigation-compose" }
+androidx-annotation-jvm = { group = "androidx.annotation", name = "annotation-jvm", version.ref = "annotation-jvm" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

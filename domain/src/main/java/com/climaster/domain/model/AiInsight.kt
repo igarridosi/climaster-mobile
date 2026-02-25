@@ -5,5 +5,6 @@ data class AiInsight(
     val clothing: String,
     val clothingIcon: String,
     val activity: String,
-    val activityIcon: String
+    val activityIcon: String,
+    val detailedAnalysis: String
 )
