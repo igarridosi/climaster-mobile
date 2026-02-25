@@ -33,13 +33,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.climaster.app.presentation.components.ThermalFeedbackButtons
 import com.climaster.app.presentation.theme.glassmorphic
 import com.climaster.core.util.Resource
+import com.climaster.domain.model.AiInsight
+import com.climaster.domain.model.ThermalSensation
 import com.climaster.domain.model.Weather
 import com.climaster.domain.model.WeatherCondition
 import com.example.climaster.app.presentation.components.AnimatedWeatherBackground
 import com.example.climaster.app.presentation.components.LocationSearchOverlay
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 import com.example.climaster.app.presentation.components.WeatherLoadingAnimation
 import com.example.climaster.app.presentation.components.shimmerEffect
@@ -213,8 +214,8 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 @Composable
 fun WeatherDashboardContent(
     weather: Weather,
-    recommendationState: Resource<String>,
-    onFeedback: (com.climaster.domain.model.ThermalSensation) -> Unit,
+    recommendationState: Resource<AiInsight>,
+    onFeedback: (ThermalSensation) -> Unit,
     onLocationClick: () -> Unit
 ) {
     Column(
@@ -230,52 +231,77 @@ fun WeatherDashboardContent(
             Text(text = weather.cityName, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
         }
         Spacer(modifier = Modifier.height(32.dp))
-        // --- GOMENDIOA (IA MOTORRA) ---
+        // --- GOMENDIOA ETA BIZIMODUA (IA MOTORRA) ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 60.dp) // Altuera minimoa, ez dadin kolapsatu
-                .glassmorphic(cornerRadius = 16.dp, alpha = 0.2f)
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
+                .glassmorphic(cornerRadius = 24.dp, alpha = 0.2f)
+                .padding(20.dp)
         ) {
-            // EGOERA BERRIA KUDEATU
             when (recommendationState) {
                 is Resource.Loading -> {
-                    // Kargatzen ari den bitartean, Shimmer efektu txiki bat
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(18.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .shimmerEffect() // Zure Shimmer modifikatzailea
-                    )
+                    Column {
+                        Box(modifier = Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row {
+                            Box(modifier = Modifier.width(80.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).shimmerEffect())
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(modifier = Modifier.width(100.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).shimmerEffect())
+                        }
+                    }
                 }
                 is Resource.Error -> {
-                    Text(
-                        text = "⚠️ Ezin izan da aholkua sortu",
-                        color = Color.Yellow,
-                        fontSize = 14.sp
-                    )
+                    Text("⚠️ AI Laguntzailea ez dago erabilgarri.", color = Color(0xFFFFB74D), fontSize = 14.sp)
                 }
                 is Resource.Success -> {
-                    Text(
-                        text = "💡 ${recommendationState.data}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
-                    )
+                    val insight = recommendationState.data
+                    Column {
+                        // Briefing nagusia
+                        Text(
+                            text = "💡 ${insight.briefing}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 22.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Action Chips (Arropa eta Ekintza)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Arropa Chip-a
+                            Row(
+                                modifier = Modifier
+                                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = insight.clothingIcon, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = insight.clothing, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // Ekintza Chip-a
+                            Row(
+                                modifier = Modifier
+                                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = insight.activityIcon, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = insight.activity, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         }
-        /*
-        Box(
-            modifier = Modifier.fillMaxWidth().glassmorphic(cornerRadius = 16.dp, alpha = 0.2f).padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "💡 $recommendation", style = MaterialTheme.typography.bodyLarge, color = Color.White, fontWeight = FontWeight.Medium)
-        }
-         */
         Spacer(modifier = Modifier.height(32.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = "${weather.temperature.toInt()}°", style = MaterialTheme.typography.displayLarge.copy(fontSize = 100.sp, fontWeight = FontWeight.Bold), color = Color.White)

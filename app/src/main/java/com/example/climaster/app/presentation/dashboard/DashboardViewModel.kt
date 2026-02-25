@@ -3,6 +3,7 @@ package com.example.climaster.app.presentation.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.climaster.core.util.Resource
+import com.climaster.domain.model.AiInsight
 import com.climaster.domain.model.ThermalSensation
 import com.climaster.domain.model.UserThermalFeedback
 import com.climaster.domain.model.Weather
@@ -36,8 +37,8 @@ class DashboardViewModel @Inject constructor(
     private val _searchResults = MutableStateFlow<Resource<List<LocationResult>>>(Resource.Success(emptyList()))
     val searchResults: StateFlow<Resource<List<LocationResult>>> = _searchResults
 
-    private val _recommendationState = MutableStateFlow<Resource<String>>(Resource.Loading)
-    val recommendationState: StateFlow<Resource<String>> = _recommendationState
+    private val _recommendationState = MutableStateFlow<Resource<AiInsight>>(Resource.Loading)
+    val recommendationState: StateFlow<Resource<AiInsight>> = _recommendationState
 
     private var searchJob: Job? = null
 

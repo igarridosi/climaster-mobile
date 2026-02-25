@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml:2:13-83
-INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml:2:13-83
+ADDED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml:2:13-83
+INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml:2:13-83
 	package
-		INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml
+		INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml
 	xmlns:android
-		ADDED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml:2:23-81
+		ADDED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml:2:23-81
 uses-sdk
-INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml reason: use-sdk injection requested
-INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml
-INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml
+INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml reason: use-sdk injection requested
+INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml
+INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml
 	android:targetSdkVersion
-		INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml
+		INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml
 	android:minSdkVersion
-		INJECTED from E:\PAAG25_Zubiri\CliMaster\climaster-mobile\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest7808102401635409854.xml
+		INJECTED from D:\CliMaster\core\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest11011045361548111183.xml

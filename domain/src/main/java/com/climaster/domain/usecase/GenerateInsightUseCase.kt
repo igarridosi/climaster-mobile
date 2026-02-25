@@ -1,6 +1,7 @@
 package com.climaster.domain.usecase
 
 import com.climaster.core.util.Resource
+import com.climaster.domain.model.AiInsight
 import com.climaster.domain.model.Weather
 import com.climaster.domain.repository.AgentRepository
 import com.climaster.domain.repository.UserFeedbackRepository
@@ -13,13 +14,13 @@ class GenerateInsightUseCase @Inject constructor(
     private val agentRepository: AgentRepository,
     private val feedbackRepository: UserFeedbackRepository
 ) {
-    operator fun invoke(weather: Weather): Flow<Resource<String>> = flow {
-        // 1. Erabiltzailearen azken feedback-ak lortu (Testuingurua)
-        val history = feedbackRepository.getFeedbackHistory().first().take(5) // Azken 5ak nahikoa dira
+    // OHARTU HEMEN ERE AiInsight DAGOELA:
+    operator fun invoke(weather: Weather): Flow<Resource<AiInsight>> = flow {
+        val history = feedbackRepository.getFeedbackHistory().first().take(5)
 
-        // 2. Agentea deitu datu guztiekin
+        // Orain honek Resource<AiInsight> itzuliko du, interfazeari esker
         agentRepository.generatePersonalizedInsight(weather, history).collect {
-            emit(it)
+            emit(it) // <--- Orain "it" AiInsight izango da eta ez du errorerik emango
         }
     }
 }

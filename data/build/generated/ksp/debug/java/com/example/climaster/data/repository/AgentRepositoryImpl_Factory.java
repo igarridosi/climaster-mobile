@@ -1,6 +1,6 @@
 package com.example.climaster.data.repository;
 
-import com.climaster.data.remote.GroqApi;
+import com.example.climaster.data.remote.GroqApi;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.QualifierMetadata;
@@ -24,20 +24,25 @@ import javax.inject.Provider;
 public final class AgentRepositoryImpl_Factory implements Factory<AgentRepositoryImpl> {
   private final Provider<GroqApi> groqApiProvider;
 
-  public AgentRepositoryImpl_Factory(Provider<GroqApi> groqApiProvider) {
+  private final Provider<String> apiKeyProvider;
+
+  public AgentRepositoryImpl_Factory(Provider<GroqApi> groqApiProvider,
+      Provider<String> apiKeyProvider) {
     this.groqApiProvider = groqApiProvider;
+    this.apiKeyProvider = apiKeyProvider;
   }
 
   @Override
   public AgentRepositoryImpl get() {
-    return newInstance(groqApiProvider.get());
+    return newInstance(groqApiProvider.get(), apiKeyProvider.get());
   }
 
-  public static AgentRepositoryImpl_Factory create(Provider<GroqApi> groqApiProvider) {
-    return new AgentRepositoryImpl_Factory(groqApiProvider);
+  public static AgentRepositoryImpl_Factory create(Provider<GroqApi> groqApiProvider,
+      Provider<String> apiKeyProvider) {
+    return new AgentRepositoryImpl_Factory(groqApiProvider, apiKeyProvider);
   }
 
-  public static AgentRepositoryImpl newInstance(GroqApi groqApi) {
-    return new AgentRepositoryImpl(groqApi);
+  public static AgentRepositoryImpl newInstance(GroqApi groqApi, String apiKey) {
+    return new AgentRepositoryImpl(groqApi, apiKey);
   }
 }

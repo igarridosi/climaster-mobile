@@ -20,15 +20,8 @@ android {
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
-
-        //load the values from .properties file
-        val keystoreFile = project.rootProject.file("apikeys.properties")
-        val properties = Properties()
-        properties.load(keystoreFile.inputStream())
-
-        //return empty key in case something goes wrong
-        val apiKey = properties.getProperty("GROQ_API_KEY") ?: ""
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

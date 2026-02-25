@@ -4,101 +4,121 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.climaster.core.util.Resource
-import com.climaster.data.remote.GroqApi
-import com.climaster.data.remote.dto.groq.GroqMessage
-import com.climaster.data.remote.dto.groq.GroqRequest
+import com.example.climaster.data.remote.GroqApi
+import com.example.climaster.data.remote.dto.groq.GroqMessage
+import com.example.climaster.data.remote.dto.groq.GroqRequest
 import com.climaster.domain.model.UserThermalFeedback
 import com.climaster.domain.model.Weather
 import com.climaster.domain.repository.AgentRepository
-import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import retrofit2.HttpException
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import com.climaster.domain.model.AiInsight
+import com.example.climaster.data.remote.dto.groq.GroqResponseFormat
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 
 class AgentRepositoryImpl @Inject constructor(
-    private val groqApi: GroqApi
+    private val groqApi: GroqApi,
+    private val apiKey: String
 ) : AgentRepository {
-    //val apiKey = properties.getProperty("API_KEY") ?: ""
-
-    // Groq-eko zure API gakoa.
-    // GEROAGO hau babestu beharko dugu (local.properties)
-    private val groqApiKey = "Bearer apiKey"
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun generatePersonalizedInsight(
         weather: Weather,
         userHistory: List<UserThermalFeedback>
-    ): Flow<Resource<String>> = flow {
-
+    ): Flow<Resource<AiInsight>> = flow {
         emit(Resource.Loading)
 
         try {
-            // --- 1. PROMPT-A BATERATU (Llama3-rekin bateragarria eta segurua) ---
-            val prompt = """
-                [INST] 
-                Zure rola: CliMaster aplikazioko agente meteorologo aditua.
-                Hizkuntza: Beti Euskaraz hitz egin.
-                Tonua: Atsegina, lagunkoia, eta zuzena.
-                Helburua: Eguraldiaren datu gordinak jakintza pertsonalizatu bihurtzea.
-                Arauak:
-                - Eman esaldi MOTZ bat (max 20 hitz), umore ukitu bat izan dezakeena.
-                - Ez errepikatu datu agerikoak (ez esan "15 gradu daude"). Esan zer esan nahi duten.
-                - Analizatu erabiltzailearen historia termikoa ('feedback') ondorio pertsonalizatuak ateratzeko.
+            // 1. Data Processing (Prepared in English for better AI comprehension)
+            val time = weather.lastUpdated.format(DateTimeFormatter.ofPattern("HH:mm"))
+            val temp = weather.temperature.toInt()
+            val wind = weather.windSpeed
+            val condition = weather.condition.name // Make sure this returns an English string if possible (e.g., "RAINY")
 
-                Hona hemen uneko egoera:
-                ${ // Datuen JSONa hemen eraikiko dugu eskuz
-                buildString {
-                    append("{")
-                    append("\"eguraldia\":{")
-                    append("\"tenperatura\":${weather.temperature},")
-                    append("\"haizea_kmh\":${weather.windSpeed},")
-                    append("\"hezetasuna_percent\":${weather.humidity},")
-                    append("\"egoera\":\"${weather.condition.name}\"")
-                    append("},")
-                    append("\"ordua\":\"${weather.lastUpdated.format(DateTimeFormatter.ofPattern("HH:mm"))}\"")
-
-                    if (userHistory.isNotEmpty()) {
-                        append(",")
-                        append("\"erabiltzailearen_feedback_historikoa\":[")
-                        append(userHistory.joinToString(separator = ",") {
-                            """{"temp_gordeta":${it.actualTemp},"sentsazioa":"${it.sensation.name}"}"""
-                        })
-                        append("]")
-                    }
-                    append("}")
-                }
+            val historyStr = if (userHistory.isNotEmpty()) {
+                "User thermal history at various temperatures: " +
+                        userHistory.joinToString(", ") { "${it.actualTemp}ºC -> ${it.sensation.name}" }
+            } else {
+                "No prior thermal history for this user."
             }
-                
-                Orain, eman aholku pertsonalizatua. Adibidez, erabiltzaileak 15 gradurekin 'HOTZ' esan badu, ondorioztatu hotzbera dela.
-                [/INST]
-            """.trimIndent()
 
-            // 2. GROQ APIari eskaera egin (Mezu BAKAR batekin)
+            // 2. System Prompt: The Architect's Rules (English)
+            val systemPrompt = """
+        You are an expert meteorological and lifestyle assistant.
+        Your task is to analyze weather data and user thermal history to provide personalized advice.
+        
+        CRITICAL INSTRUCTIONS:
+        1. REASON IN ENGLISH, BUT ALL TEXT VALUES IN THE JSON MUST BE IN BASQUE (EUSKERA).
+        2. You must output ONLY a raw, valid JSON object. 
+        3. DO NOT wrap the JSON in markdown blocks (no ```json). 
+        4. Do not include greetings, explanations, or any text outside the JSON.
+        
+        REQUIRED JSON SCHEMA:
+        {
+          "briefing": "<Short friendly sentence in Euskera (max 20 words) considering time and weather>",
+          "clothing": "<Recommended clothing items in Euskera>",
+          "clothingIcon": "<A single clothing emoji>",
+          "activity": "<A recommended activity in Euskera>",
+          "activityIcon": "<A single activity emoji>"
+        }
+    """.trimIndent()
+
+            // 3. User Prompt: The Dynamic Data
+            val userDataPrompt = """
+        DATA:
+        - Local Time: $time
+        - Temperature: $temp ºC
+        - Wind Speed: $wind km/h
+        - Weather Condition: $condition
+        - $historyStr
+    """.trimIndent()
+
+            // 4. API Request using Roles
             val request = GroqRequest(
+                model = "llama-3.3-70b-versatile",
                 messages = listOf(
-                    GroqMessage(
-                        role = "user",
-                        content = prompt
-                    )
-                )
+                    GroqMessage(role = "system", content = systemPrompt),
+                    GroqMessage(role = "user", content = userDataPrompt)
+                ),
+                temperature = 0.3, // Keep it grounded
+                responseFormat = GroqResponseFormat(type = "json_object") // Force JSON
             )
 
-            // DEBUG: Egiaztatu zer bidaltzen ari garen
-            Log.d("GroqAgent", "Bidalitako JSON eskaera: ${Gson().toJson(request)}")
+            // 5. API Call & Error Handling
+            Log.d("GroqAgent", "Deia egiten ari da...")
+            val response = groqApi.generateInsight(apiKey, request)
+            val agentResponseText = response.choices?.firstOrNull()?.message?.content?.trim()
 
-            val response = groqApi.generateInsight(groqApiKey, request)
+            if (!agentResponseText.isNullOrBlank()) {
+                try {
+                    // Defensive cleaning (always keep this, LLaMA can occasionally be stubborn)
+                    val cleanJson = agentResponseText.replace("```json", "", ignoreCase = true)
+                        .replace("```", "")
+                        .trim()
 
-            val agentResponse = response.choices.firstOrNull()?.message?.content
-            if (agentResponse != null) {
-                emit(Resource.Success(agentResponse))
+                    val insight = Gson().fromJson(cleanJson, AiInsight::class.java)
+                    emit(Resource.Success(insight))
+                } catch (e: JsonSyntaxException) {
+                    Log.e("GroqAgent", "JSON parseo errorea. Raw text: $agentResponseText")
+                    emit(Resource.Error("Ezin izan da AI-ren erantzuna prozesatu."))
+                }
             } else {
-                emit(Resource.Error("Agenteak ezin izan du erantzunik sortu."))
+                emit(Resource.Error("Erantzun hutsa jaso da Groq-etik."))
             }
 
+        } catch (e: HttpException) {
+            // HAU DA GAKOA: 400 erroreak zergatik huts egiten duen erakutsiko digu Logcat-en
+            val errorBody = e.response()?.errorBody()?.string() ?: "Ezezaguna"
+            Log.e("GroqAgent", "HTTP ERROREA ${e.code()}: $errorBody")
+            emit(Resource.Error("Zerbitzari errorea: Kodea ${e.code()}"))
+
         } catch (e: Exception) {
-            Log.e("GroqAgent", "Agenteari deitzean errorea gertatu da", e)
-            emit(Resource.Error("Errorea Agentearekin komunikatzean: ${e.message}"))
+            Log.e("GroqAgent", "Konektibitate errorea: ${e.message}", e)
+            emit(Resource.Error("Ezin da konektatu agentearekin."))
         }
     }
 }
