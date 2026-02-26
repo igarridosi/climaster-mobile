@@ -91,8 +91,8 @@ fun LocationSearchOverlay(
                         Spacer(modifier = Modifier.height(16.dp))
                         listOf(
                             LocationResult("Madrid, España", 40.4168, -3.7038),
-                            LocationResult("Bilbao, Euskadi", 43.2630, -2.9350),
-                            LocationResult("London, UK", 51.5074, -0.1278),
+                            LocationResult("Donostia, Euskadi", 43.317, -1.983),
+                            LocationResult("Praha, Czech Republic", 50.087222, 14.420556),
                             LocationResult("London, UK", 51.5074, -0.1278)
                         ).forEach { city -> LocationListItem(city) { onLocationSelected(city.name, city.lat, city.lon) } }
                     }

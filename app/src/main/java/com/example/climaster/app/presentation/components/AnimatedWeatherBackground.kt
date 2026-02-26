@@ -1,5 +1,6 @@
 package com.example.climaster.app.presentation.components
 
+import android.R.attr.left
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -16,10 +17,10 @@ import kotlin.random.Random
  * Klima bakoitzerako eszena pertsonalizatua bideratzen duen osagai nagusia.
  */
 @Composable
-fun AnimatedWeatherBackground(condition: WeatherCondition, modifier: Modifier = Modifier) {
+fun AnimatedWeatherBackground(condition: WeatherCondition, isNight: Boolean, modifier: Modifier = Modifier) {
     when (condition) {
-        WeatherCondition.EGUZKITSUA -> SunnyScene(modifier)
-        WeatherCondition.HODEITARTEAK -> PartlyCloudyScene(modifier) // BERRIA
+        WeatherCondition.OSKARBIA -> ClearScene(modifier, isNight)
+        WeatherCondition.HODEITARTEAK -> PartlyCloudyScene(modifier, isNight) // BERRIA
         WeatherCondition.HODEITSUA -> CloudyScene(modifier)
         WeatherCondition.EURITSUA -> RainyScene(modifier)
         WeatherCondition.EURIELURRA -> SleetScene(modifier) // BERRIA
@@ -35,46 +36,32 @@ fun AnimatedWeatherBackground(condition: WeatherCondition, modifier: Modifier = 
  * ☀️ EGUZKITSUA: Diseinu minimalista. Eguzki handi bat behealdean poliki distiratzen.
  */
 @Composable
-private fun SunnyScene(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "sun_pulse")
-    // Pultsu efektua: 0.95 eta 1.05 artean tamaina aldatzen
+private fun ClearScene(modifier: Modifier = Modifier, isNight: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
+        initialValue = 0.95f, targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(animation = tween(4000, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse), label = "pulse"
     )
 
+    val glowColor = if (isNight) Color(0xFFE0E0E0).copy(alpha = 0.15f) else Color(0xFFFFC107).copy(alpha = 0.15f)
+    val coreColor = if (isNight) Color(0xFFF5F5F5).copy(alpha = 0.9f) else Color(0xFFFFB300).copy(alpha = 0.8f)
+
     Canvas(modifier = modifier.fillMaxSize()) {
-        val width = size.width
-        val height = size.height
-        val sunRadius = width * 0.6f // Eguzki oso handia
-        val sunCenter = Offset(width / 6f, height) // Pantailaren beheko erdialdean
+        val radius = size.width * 0.35f // <--- TXIKIAGOA EGIN DUGU
 
-        // 1. Eguzkiaren Koroa (Distira gardena)
-        drawCircle(
-            color = Color(0xFFFFC107).copy(alpha = 0.15f),
-            radius = sunRadius * pulse * 1.2f,
-            center = sunCenter
-        )
+        // <--- GOI-ESKUBIAN KOKATU DUGU (X=%85, Y=%15)
+        val center = Offset(size.width * 0.95f, size.height * 0.05f)
 
-        // 2. Eguzki Nagusia (Solidoagoa)
-        drawCircle(
-            color = Color(0xFFFFB300).copy(alpha = 0.8f),
-            radius = sunRadius * pulse,
-            center = sunCenter
-        )
+        drawCircle(color = glowColor, radius = radius * pulse * 1.3f, center = center)
+        drawCircle(color = coreColor, radius = radius * pulse, center = center)
     }
 }
 
 // BERRIA: Eguzkia azpian + Hodeiak goian
 
 @Composable
-private fun PartlyCloudyScene(modifier: Modifier = Modifier) {
-    SunnyScene(modifier) // Eguzkia kargatu
+private fun PartlyCloudyScene(modifier: Modifier = Modifier, isNight: Boolean) {
+    ClearScene(modifier, isNight) // Eguzkia kargatu
     CloudyScene(modifier) // Hodeiak gainean kargatu
 }
 
@@ -243,13 +230,13 @@ private fun WindyScene(modifier: Modifier = Modifier) {
 private fun FoggyScene(modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "fog")
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.8f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(animation = tween(8000, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse), label = "pulse"
+        initialValue = 0.7f, targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(animation = tween(5000, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse), label = "pulse"
     )
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        drawCircle(color = Color.White.copy(alpha = 0.1f), radius = size.width * 1.5f * pulse, center = Offset(size.width * 0.2f, size.height * 0.8f))
-        drawCircle(color = Color.White.copy(alpha = 0.15f), radius = size.width * pulse, center = Offset(size.width * 0.8f, size.height * 0.3f))
+        drawCircle(color = Color(0xFFCCCCCC).copy(alpha = 0.35f), radius = size.width * 1.5f * pulse, center = Offset(size.width * 0.2f, size.height * 0.8f))
+        drawCircle(color = Color.White.copy(alpha = 0.1f), radius = size.width * pulse, center = Offset(size.width * 0.8f, size.height * 0.3f))
     }
 }
 

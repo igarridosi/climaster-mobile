@@ -13,5 +13,6 @@ data class Weather @RequiresApi(Build.VERSION_CODES.O) constructor(
     val cityName: String,
     val timezone: String,
     val lastUpdated: LocalDateTime = LocalDateTime.now(),
-    val forecast: List<DailyForecast> = emptyList()
+    val forecast: List<DailyForecast> = emptyList(),
+    val hourlyForecast: List<HourlyForecast> = emptyList()
 )

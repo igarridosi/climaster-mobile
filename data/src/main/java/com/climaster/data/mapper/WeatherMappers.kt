@@ -30,7 +30,7 @@ fun WeatherDto.toEntity(): WeatherEntity {
 // String -> Enum bihurtzailea
 private fun parseCondition(condition: String): WeatherCondition {
     return when(condition.lowercase()) {
-        "clear" -> WeatherCondition.EGUZKITSUA
+        "clear" -> WeatherCondition.OSKARBIA
         "clouds" -> WeatherCondition.HODEITSUA
         "rain", "drizzle" -> WeatherCondition.EURITSUA
         "thunderstorm" -> WeatherCondition.EKAITSUA

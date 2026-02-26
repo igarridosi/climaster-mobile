@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 data class PirateWeatherResponse(
     @SerializedName("currently") val currently: PirateCurrentDto,
+    @SerializedName("hourly") val hourly: PirateHourlyDto,
     @SerializedName("daily") val daily: PirateDailyDto,
     @SerializedName("timezone") val timezone: String
 )
@@ -14,6 +15,16 @@ data class PirateCurrentDto(
     @SerializedName("windSpeed") val windSpeed: Double,
     @SerializedName("icon") val icon: String, // "rain", "clear-day", etab.
     @SerializedName("summary") val summary: String
+)
+
+data class PirateHourlyDto(
+    @SerializedName("data") val data: List<PirateHourlyDataDto>
+)
+
+data class PirateHourlyDataDto(
+    @SerializedName("time") val time: Long,
+    @SerializedName("temperature") val temperature: Double,
+    @SerializedName("icon") val icon: String
 )
 
 data class PirateDailyDto(

@@ -13,6 +13,6 @@ interface WeatherApi {
         @Path("lat") lat: Double,
         @Path("lon") lon: Double,
         @Query("units") units: String = "ca", // "ca" = Celsius eta km/h
-        @Query("exclude") exclude: String = "minutely,hourly,alerts" // Datu soberakinak kendu
+        @Query("exclude") exclude: String = "minutely,alerts" // Datu soberakinak kendu
     ): PirateWeatherResponse
 }

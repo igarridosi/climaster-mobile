@@ -8,12 +8,14 @@ import com.climaster.data.local.WeatherDao
 import com.climaster.data.local.WeatherEntity
 import com.climaster.data.mapper.toEntity
 import com.climaster.domain.model.DailyForecast
+import com.climaster.domain.model.HourlyForecast
 import com.climaster.domain.model.Weather
 import com.climaster.domain.model.WeatherCondition
 import com.climaster.domain.repository.WeatherRepository
 import com.example.climaster.data.remote.WeatherApi
 import com.example.climaster.data.remote.dto.ForecastResponseDto
 import com.example.climaster.data.remote.dto.PirateDailyDataDto
+import com.example.climaster.data.remote.dto.PirateHourlyDataDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import retrofit2.HttpException
@@ -22,6 +24,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
@@ -48,6 +51,7 @@ class WeatherRepositoryImpl @Inject constructor(
             // Datuak erauzi
             val current = response.currently
             val daily = response.daily.data
+            val hourly = response.hourly.data
 
             // Mapeatu Domain eredura
             val condition = mapIconToCondition(current.icon)
@@ -65,7 +69,8 @@ class WeatherRepositoryImpl @Inject constructor(
                 cityName = response.timezone.substringAfter("/").replace("_", " "), // "Europe/Madrid" -> "Madrid"
                 timezone = response.timezone,
                 lastUpdated = LocalDateTime.now(),
-                forecast = processDailyForecast(daily)
+                forecast = processDailyForecast(daily),
+                hourlyForecast = processHourlyForecast(hourly, response.timezone)
             )
 
             // Cachean gorde (Entity-ra bihurtu lehenik)
@@ -103,7 +108,7 @@ class WeatherRepositoryImpl @Inject constructor(
             val dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("eu", "ES")).replace(".", "")
 
             val condition = mapIconToCondition(item.icon)
-            val emoji = conditionToEmoji(condition)
+            val emoji = iconStringToEmoji(item.icon)
 
             DailyForecast(
                 dayName = dayName.replaceFirstChar { it.uppercase() },
@@ -116,7 +121,7 @@ class WeatherRepositoryImpl @Inject constructor(
 
     private fun mapIconToCondition(icon: String): WeatherCondition {
         return when {
-            icon.contains("clear") -> WeatherCondition.EGUZKITSUA
+            icon == "clear-day" || icon == "clear-night" -> WeatherCondition.OSKARBIA
             icon.contains("partly-cloudy") -> WeatherCondition.HODEITARTEAK
             icon.contains("cloudy") -> WeatherCondition.HODEITSUA
             icon.contains("rain") -> WeatherCondition.EURITSUA
@@ -129,18 +134,19 @@ class WeatherRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun conditionToEmoji(condition: WeatherCondition): String {
-        return when (condition) {
-            WeatherCondition.EGUZKITSUA -> "☀️"
-            WeatherCondition.HODEITARTEAK -> "⛅"
-            WeatherCondition.HODEITSUA -> "☁️"
-            WeatherCondition.EURITSUA -> "🌧️"
-            WeatherCondition.EURIELURRA -> "🌨️"
-            WeatherCondition.EKAITSUA -> "⛈️"
-            WeatherCondition.ELURTSUA -> "❄️"
-            WeatherCondition.HAIZETSUA -> "💨"
-            WeatherCondition.LAINOTSUA -> "🌫️"
-            WeatherCondition.EZEZAGUNA -> "❓"
+    private fun iconStringToEmoji(icon: String): String {
+        return when (icon) {
+            "clear-day" -> "☀️"
+            "clear-night" -> "🌙" // <--- GAUA
+            "partly-cloudy-day" -> "⛅"
+            "partly-cloudy-night" -> "☁️" // <--- GAUA ETA HODEIAK
+            "cloudy" -> "☁️"
+            "rain" -> "🌧️"
+            "sleet" -> "🌨️"
+            "snow" -> "❄️"
+            "wind" -> "💨"
+            "fog" -> "🌫️"
+            else -> if (icon.contains("thunder")) "⛈️" else "🌦️"
         }
     }
 
@@ -155,5 +161,24 @@ class WeatherRepositoryImpl @Inject constructor(
             7 -> "Ig"  // Igandea
             else -> ""
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun processHourlyForecast(hourlyData: List<PirateHourlyDataDto>, timezone: String): List<HourlyForecast> {
+        val zoneId = ZoneId.of(timezone)
+        val now = Instant.now().epochSecond
+
+        return hourlyData
+            .filter { it.time >= now } // Uneko ordutik aurrera bakarrik
+            .take(24) // Hurrengo 24 orduak bakarrik hartu
+            .map { item ->
+                // Unix time -> Bertako ordua ("14:00")
+                val timeStr = Instant.ofEpochSecond(item.time).atZone(zoneId).format(
+                    DateTimeFormatter.ofPattern("HH:00"))
+                val cond = mapIconToCondition(item.icon)
+                val emoji = iconStringToEmoji(item.icon)
+
+                HourlyForecast(timeStr, emoji, Math.round(item.temperature).toInt())
+            }
     }
 }

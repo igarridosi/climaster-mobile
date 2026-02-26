@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,6 +51,8 @@ import kotlinx.coroutines.launch
 import com.example.climaster.app.presentation.components.WeatherLoadingAnimation
 import com.example.climaster.app.presentation.components.shimmerEffect
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 
 // ---------------------------------------------------------
 // KOLORE DINAMIKOEN FUNTZIO MAGIKOA (EGURALDIA + ORDUA)
@@ -61,7 +64,7 @@ fun getDynamicWeatherColors(condition: WeatherCondition, time: LocalDateTime): L
     val isAfternoon = hour in 17..19
 
     return when (condition) {
-        WeatherCondition.EGUZKITSUA -> {
+        WeatherCondition.OSKARBIA -> {
             when {
                 isMorning -> listOf(Color(0xFF56CCF2), Color(0xFF2F80ED)) // Goiza: Urdin argi distiratsua
                 isAfternoon -> listOf(Color(0xFFFF7E5F), Color(0xFFFEB47B)) // Ilunabarra: Laranja epela
@@ -214,10 +217,13 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                         }
                     }
                     is Resource.Success -> {
+                        val localTime = getLocalTimeInLocation(state.data.timezone)
+                        val isNight = localTime.hour < 6 || localTime.hour >= 19
                         Box(modifier = Modifier.fillMaxSize()) {
-                            AnimatedWeatherBackground(condition = state.data.condition)
+                            AnimatedWeatherBackground(condition = state.data.condition, isNight = isNight)
                             WeatherDashboardContent(
                                 weather = state.data,
+                                localTimeStr = localTime.format(DateTimeFormatter.ofPattern("HH:mm")),
                                 recommendationState = recommendationState,
                                 onLocationClick = { showLocationSearch = true }
                             )
@@ -262,31 +268,37 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 @Composable
 fun WeatherDashboardContent(
     weather: Weather,
+    localTimeStr: String,
     recommendationState: Resource<com.climaster.domain.model.AiInsight>,
     onLocationClick: () -> Unit
 ) {
-    val localTime = getLocalTimeInLocation(weather.timezone)
-    Text(
-        text = "Bertako ordua: ${localTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
-        style = MaterialTheme.typography.bodySmall,
-        color = Color.White.copy(alpha = 0.6f)
-    )
-
     var isExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.glassmorphic(cornerRadius = 50.dp, alpha = 0.1f).clickable { onLocationClick() }.padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = Color.White)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = weather.cityName, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
+        // HOBEKUNTZA 2: Goiburua eta Badge-a
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.glassmorphic(cornerRadius = 50.dp, alpha = 0.1f).clickable { onLocationClick() }.padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = weather.cityName, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            // Badge Dotorea Orduarekin
+            Text(
+                text = "Bertako ordua: $localTimeStr",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            )
         }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         // AI GOMENDIOA
@@ -390,12 +402,24 @@ fun WeatherDashboardContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            DetailItem(icon = Icons.Rounded.WaterDrop, label = "Hezetasuna", value = "${weather.humidity}%")
-            DetailItem(icon = Icons.Rounded.Air, label = "Haizea", value = "${weather.windSpeed} km/h")
+        // HOBEKUNTZA 3: UI Malgua (Grid-a)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), // Padding txiki bat kanpoan
+            horizontalArrangement = Arrangement.spacedBy(16.dp) // Txartelen arteko tartea
+        ) {
+            DetailItem(icon = Icons.Rounded.WaterDrop, label = "Hezetasuna", value = "${weather.humidity}%", modifier = Modifier.weight(1f))
+            DetailItem(icon = Icons.Rounded.Air, label = "Haizea", value = "${weather.windSpeed} km/h", modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        // HOBEKUNTZA 4: Orduko Iragarpena
+        if (weather.hourlyForecast.isNotEmpty()) {
+            Text("Gaurko Orduak", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.align(Alignment.Start))
+            Spacer(modifier = Modifier.height(12.dp))
+            HourlyForecastUI(hourlyList = weather.hourlyForecast)
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
         Text("Hurrengo Egunak", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.align(Alignment.Start))
         Spacer(modifier = Modifier.height(8.dp))
@@ -448,16 +472,42 @@ fun FiveDayForecastUI(forecastList: List<com.climaster.domain.model.DailyForecas
     }
 }
 
+// OSAGAI BERRIA: Orduko Iragarpena (Scroll Horizontala)
 @Composable
-fun DetailItem(icon: ImageVector, label: String, value: String) {
+fun HourlyForecastUI(hourlyList: List<com.climaster.domain.model.HourlyForecast>) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(hourlyList) { hour ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .glassmorphic(cornerRadius = 16.dp, alpha = 0.15f)
+                    .padding(vertical = 12.dp, horizontal = 16.dp)
+            ) {
+                Text(text = hour.time, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = hour.emoji, fontSize = 22.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "${hour.temp}°", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailItem(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(110.dp).glassmorphic(cornerRadius = 20.dp, alpha = 0.15f).padding(16.dp)
+        modifier = modifier
+            .glassmorphic(cornerRadius = 20.dp, alpha = 0.15f)
+            .padding(16.dp)
     ) {
         Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = value, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+        Text(text = value, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
     }
 }
 
