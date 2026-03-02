@@ -1,23 +1,31 @@
 package com.example.climaster.app.di
 
 import android.app.Application
+import android.content.Context
 import androidx.room.Room
 import com.climaster.data.local.UserFeedbackDao
 import com.climaster.data.local.WeatherDao
 import com.climaster.data.local.WeatherDatabase
 import com.climaster.data.repository.UserFeedbackRepositoryImpl
+import com.climaster.domain.location.LocationTracker
 import com.climaster.domain.repository.AgentRepository
 import com.climaster.domain.repository.UserFeedbackRepository
 import com.climaster.domain.repository.WeatherRepository
+import com.climaster.domain.repository.WidgetConfigRepository
 import com.climaster.domain.usecase.GetWeatherUseCase
+import com.example.climaster.data.location.DefaultLocationTracker
 import com.example.climaster.data.remote.GeocodingApi
 import com.example.climaster.data.remote.GroqApi
 import com.example.climaster.data.remote.WeatherApi
 import com.example.climaster.data.repository.AgentRepositoryImpl
 import com.example.climaster.data.repository.WeatherRepositoryImpl
+import com.example.climaster.data.repository.WidgetConfigRepositoryImpl
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -117,5 +125,28 @@ object AppModule {
         val groqApiKey = "Bearer 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"
 
         return AgentRepositoryImpl(api, groqApiKey)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWidgetConfigRepository(
+        @ApplicationContext context: Context
+    ): WidgetConfigRepository {
+        return WidgetConfigRepositoryImpl(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFusedLocationProviderClient(app: Application): FusedLocationProviderClient {
+        return LocationServices.getFusedLocationProviderClient(app)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationTracker(
+        fusedLocationProviderClient: FusedLocationProviderClient,
+        app: Application
+    ): LocationTracker {
+        return DefaultLocationTracker(fusedLocationProviderClient, app)
     }
 }

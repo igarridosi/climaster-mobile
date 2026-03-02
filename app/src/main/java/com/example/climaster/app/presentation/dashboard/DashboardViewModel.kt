@@ -1,13 +1,17 @@
 package com.example.climaster.app.presentation.dashboard
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.climaster.core.util.Resource
+import com.climaster.domain.location.LocationTracker
 import com.climaster.domain.model.AiInsight
 import com.climaster.domain.model.ThermalSensation
 import com.climaster.domain.model.UserThermalFeedback
 import com.climaster.domain.model.Weather
 import com.climaster.domain.repository.UserFeedbackRepository
+import com.climaster.domain.repository.WidgetConfigRepository
 import com.climaster.domain.usecase.AskAgentUseCase
 import com.climaster.domain.usecase.GetWeatherUseCase
 import com.example.climaster.data.remote.GeocodingApi
@@ -20,14 +24,18 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 import com.climaster.domain.usecase.GenerateInsightUseCase
+import org.json.JSONObject
 
+@RequiresApi(Build.VERSION_CODES.O)
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getWeatherUseCase: GetWeatherUseCase,
     private val feedbackRepository: UserFeedbackRepository,
     private val geocodingApi: GeocodingApi,
     private val generateInsightUseCase: GenerateInsightUseCase,
-    private val askAgentUseCase: AskAgentUseCase
+    private val askAgentUseCase: AskAgentUseCase,
+    private val widgetConfigRepository: WidgetConfigRepository,
+    private val locationTracker: LocationTracker
 ) : ViewModel() {
 
     // --- TXAT-AREN EGOERAK ---
@@ -46,12 +54,12 @@ class DashboardViewModel @Inject constructor(
     private val _recommendationState = MutableStateFlow<Resource<AiInsight>>(Resource.Loading)
     val recommendationState: StateFlow<Resource<AiInsight>> = _recommendationState
 
+    private val _widgetMessage = MutableSharedFlow<String>()
+    val widgetMessage = _widgetMessage.asSharedFlow()
+
     private var searchJob: Job? = null
 
-    init {
-        loadWeather(43.31, -1.98, "Donostia")
-    }
-
+    @RequiresApi(Build.VERSION_CODES.O)
     fun loadWeather(lat: Double, lon: Double, customName: String? = null) {
         viewModelScope.launch {
             _weatherState.value = Resource.Loading
@@ -133,6 +141,18 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun downloadWidgetConfig(url: String) {
+        viewModelScope.launch {
+            val result = widgetConfigRepository.fetchAndSaveWidgetConfig(url)
+            if (result is Resource.Success) {
+                println("JSON-a ondo deskargatu eta gorde da!")
+                // Hemen Snackbar bat erakusteko StateFlow bat erabili genezake
+            } else if (result is Resource.Error) {
+                println("Errorea deskargatzean: ${result.message}")
+            }
+        }
+    }
+
     fun askAgent(question: String) {
         val currentWeather = (_weatherState.value as? Resource.Success)?.data ?: return
         viewModelScope.launch {
@@ -145,5 +165,51 @@ class DashboardViewModel @Inject constructor(
     // Txata garbitzeko
     fun clearChat() {
         _chatAnswerState.value = null
+    }
+
+    // FUNTZIO BERRIA: QR kodearen JSON-a zuzenean prozesatzeko
+    fun handleScannedQr(qrData: String) {
+        viewModelScope.launch {
+            try {
+                // ALDAKETA: Orain "widgetId" (PCkoa) EDO "widget_id" (Estandarra) bilatzen dugu
+                if ((qrData.contains("\"widgetId\"") || qrData.contains("\"widget_id\"")) && qrData.contains("\"layout\"")) {
+
+                    // 1. Gorde
+                    widgetConfigRepository.saveWidgetConfigJson(qrData)
+
+                    // 2. ID-a atera (Bi aukerak probatuz)
+                    val jsonObject = JSONObject(qrData)
+                    val widgetId = when {
+                        jsonObject.has("widgetId") -> jsonObject.getString("widgetId")
+                        jsonObject.has("widget_id") -> jsonObject.getString("widget_id")
+                        else -> "Ezezaguna"
+                    }
+
+                    _widgetMessage.emit("✅ Widget-a gorde da: $widgetId")
+
+                } else {
+                    _widgetMessage.emit("❌ Errorea: QR kode hau ez da CliMaster widget bat.")
+                }
+            } catch (e: Exception) {
+                _widgetMessage.emit("❌ Errorea datuak gordetzean.")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun loadWeatherForCurrentLocation() {
+        viewModelScope.launch {
+            _weatherState.value = Resource.Loading
+            val location = locationTracker.getCurrentLocation()
+
+            if (location != null) {
+                // GPSa lortu dugu!
+                // cityName null bada (itsasoan zaudelako adibidez), ez pasa izenik eta APIak erabakiko du
+                loadWeather(location.lat, location.lon, location.cityName)
+            } else {
+                // Baimenik ez badu edo GPS itzalita badago -> Donostia defektuz
+                loadWeather(43.31, -1.98, "Donostia (Kokapena ezgaituta)")
+            }
+        }
     }
 }

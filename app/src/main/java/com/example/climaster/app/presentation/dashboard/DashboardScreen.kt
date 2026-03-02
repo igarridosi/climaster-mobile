@@ -1,6 +1,9 @@
 package com.example.climaster.app.presentation.dashboard
 
+import android.Manifest
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -13,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +57,12 @@ import com.example.climaster.app.presentation.components.shimmerEffect
 import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 // ---------------------------------------------------------
 // KOLORE DINAMIKOEN FUNTZIO MAGIKOA (EGURALDIA + ORDUA)
@@ -130,6 +140,50 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
+    // BAIMEN KUDEATZAILEA
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+
+        if (fineLocationGranted || coarseLocationGranted) {
+            // Baimena dugu! GPSa kargatu
+            viewModel.loadWeatherForCurrentLocation()
+        } else {
+            // Baimenik ez: Defektuzko hiria kargatu
+            viewModel.loadWeather(43.31, -1.98, "Donostia")
+        }
+    }
+
+    // --- 1. GOIBURUA ---
+    val context = LocalContext.current
+    val scanner = remember {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .enableAutoZoom()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+    }
+
+    // Aplikazioa irekitzean exekutatzen da
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
+
+    // MEZUEN ENTZULE BERRIA: ViewModel-ak zerbait esatean, Snackbar-a erakutsi
+    LaunchedEffect(Unit) {
+        viewModel.widgetMessage.collect { message ->
+            snackbarHostState.currentSnackbarData?.dismiss() // Aurrekoa kendu
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     LaunchedEffect(showLocationSearch) {
         if (showLocationSearch) {
             isBlurred = true; delay(200); isOverlayVisible = true
@@ -163,20 +217,51 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent,
+        floatingActionButtonPosition = FabPosition.Center,
+
         floatingActionButton = {
-            // HOBEKUNTZA 1: FAB botoia ezkutatu txata irekitzean
-            AnimatedVisibility(
-                visible = !showChatOverlay,
-                enter = scaleIn() + fadeIn(),
-                exit = scaleOut() + fadeOut()
+            // 2. BOTOI BIKOITZA (QR Ezkerrean - AI Eskubian)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp), // Tarteak ertzetatik
+                horizontalArrangement = Arrangement.SpaceBetween, // Muturretara banandu
+                verticalAlignment = Alignment.Bottom
             ) {
+                // EZKERRA: QR ESKANERRA (Urdin Iluna)
                 FloatingActionButton(
-                    onClick = { showChatOverlay = true },
-                    containerColor = Color(0xFF4FC3F7),
+                    onClick = {
+                        scanner.startScan()
+                            .addOnSuccessListener { barcode ->
+                                barcode.rawValue?.let { json ->
+                                    viewModel.handleScannedQr(json)
+                                }
+                            }
+                    },
+                    containerColor = Color(0xFF1E3C72), // Urdin ilun dotorea
                     contentColor = Color.White,
-                    shape = CircleShape
+                    shape = CircleShape,
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    Icon(Icons.Rounded.AutoAwesome, contentDescription = "Galdetu Agenteari")
+                    Icon(Icons.Rounded.QrCodeScanner, contentDescription = "Eskaneatu")
+                }
+
+                // ESKUBIA: AI AGENTEA (Urdin Argia - Lehen bezala)
+                // AnimatedVisibility mantentzen dugu txata irekitzean desagertu dadin
+                AnimatedVisibility(
+                    visible = !showChatOverlay,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
+                ) {
+                    FloatingActionButton(
+                        onClick = { showChatOverlay = true },
+                        containerColor = Color(0xFF4FC3F7),
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(Icons.Rounded.AutoAwesome, contentDescription = "Galdetu")
+                    }
                 }
             }
         }
@@ -225,7 +310,10 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                                 weather = state.data,
                                 localTimeStr = localTime.format(DateTimeFormatter.ofPattern("HH:mm")),
                                 recommendationState = recommendationState,
-                                onLocationClick = { showLocationSearch = true }
+                                onLocationClick = { showLocationSearch = true },
+                                onQrScanned = { jsonString ->
+                                    viewModel.handleScannedQr(jsonString)
+                                }
                             )
                         }
                     }
@@ -245,6 +333,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                     onLocationSelected = { name, lat, lon -> viewModel.selectLocation(name, lat, lon); showLocationSearch = false }
                 )
             }
+
 
             // Txata
             AnimatedVisibility(
@@ -270,7 +359,8 @@ fun WeatherDashboardContent(
     weather: Weather,
     localTimeStr: String,
     recommendationState: Resource<com.climaster.domain.model.AiInsight>,
-    onLocationClick: () -> Unit
+    onLocationClick: () -> Unit,
+    onQrScanned: (String) -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 

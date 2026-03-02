@@ -50,6 +50,11 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
+
+    implementation(libs.androidx.datastore.preferences)
+
+    implementation(libs.okhttp)
+    implementation(libs.play.services.location)
 }
 
 hilt {
