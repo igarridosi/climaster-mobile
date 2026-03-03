@@ -123,6 +123,21 @@ class CliMasterWidget : GlanceAppWidget() {
             // LOOP MAGIKOA: JSON-eko zerrenda irakurri eta marraztu
             config.layout.forEach { element ->
                 when (element.type) {
+
+                    // --- BERRIA: Kokapenaren izena ---
+                    "location_name" -> {
+                        Text(
+                            text = weather.cityName,
+                            style = TextStyle(
+                                color = ColorProvider(Color.White),
+                                fontSize = element.fontSize.sp,
+                                textAlign = getAlign(element.alignment)
+                                // fontWeight = FontWeight.Bold // Lodia jarri nahi baduzu, deskomentatu
+                            ),
+                            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 8.dp)
+                        )
+                    }
+
                     "current_temp" -> {
                         Text(
                             text = "${weather.temperature.toInt()}°",
@@ -130,7 +145,8 @@ class CliMasterWidget : GlanceAppWidget() {
                                 color = ColorProvider(Color.White),
                                 fontSize = element.fontSize.sp,
                                 textAlign = getAlign(element.alignment)
-                            )
+                            ),
+                            modifier = GlanceModifier.fillMaxWidth() // Zentratzeko beharrezkoa
                         )
                     }
                     "current_condition_text" -> {
@@ -140,7 +156,8 @@ class CliMasterWidget : GlanceAppWidget() {
                                 color = ColorProvider(Color.White.copy(alpha = 0.9f)),
                                 fontSize = element.fontSize.sp,
                                 textAlign = getAlign(element.alignment)
-                            )
+                            ),
+                            modifier = GlanceModifier.fillMaxWidth() // Zentratzeko beharrezkoa
                         )
                     }
                     "horizontal_divider" -> {
@@ -171,7 +188,6 @@ class CliMasterWidget : GlanceAppWidget() {
                         )
                     }
                     "daily_forecast_row" -> {
-                        // Iragarpen txikia marraztu
                         Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
                             weather.forecast.take(element.days).forEach { day ->
                                 Column(modifier = GlanceModifier.defaultWeight()) {
