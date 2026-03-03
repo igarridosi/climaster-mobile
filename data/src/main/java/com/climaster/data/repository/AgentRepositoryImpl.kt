@@ -98,8 +98,15 @@ class AgentRepositoryImpl @Inject constructor(
                 emit(Resource.Error("Erantzun hutsa."))
             }
 
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string() ?: "Ezezaguna"
+            Log.e("GroqAgent", "HTTP ERROREA ${e.code()}: $errorBody")
+            emit(Resource.Error("Zerbitzari errorea: Kodea ${e.code()}"))
+
         } catch (e: Exception) {
-            emit(Resource.Error("Errorea agentearekin."))
+            // ALDATU HAU BENETAKO ERROREA IKUSTEKO:
+            Log.e("GroqAgent", "Errore kritikoa: ${e.message}", e)
+            emit(Resource.Error("${e.javaClass.simpleName}: ${e.message}")) // <--- HAU DA GAKOA
         }
     }
 

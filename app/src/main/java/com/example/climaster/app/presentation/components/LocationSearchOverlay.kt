@@ -76,8 +76,8 @@ fun LocationSearchOverlay(
                     focusedIndicatorColor = Color(0xFF4FC3F7),
                     unfocusedIndicatorColor = Color.White.copy(alpha = 0.3f),
                     cursorColor = Color(0xFF4FC3F7),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black
                 ),
                 modifier = Modifier.fillMaxWidth()
             )

@@ -120,9 +120,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAgentRepository(api: GroqApi): AgentRepository {
-        // PLAN B: Gakoa zuzenean hemen definitu (Komatxo artean, Bearer hitzarekin)
-        // Jarri zure benetako gakoa hemen:
-        val groqApiKey = "Bearer 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"
+        val groqApiKey = "Bearer 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"
 
         return AgentRepositoryImpl(api, groqApiKey)
     }

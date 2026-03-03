@@ -156,7 +156,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
         }
     }
 
-    // --- 1. GOIBURUA ---
+    // --- GOIBURUA ---
     val context = LocalContext.current
     val scanner = remember {
         val options = GmsBarcodeScannerOptions.Builder()
@@ -220,7 +220,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
         floatingActionButtonPosition = FabPosition.Center,
 
         floatingActionButton = {
-            // 2. BOTOI BIKOITZA (QR Ezkerrean - AI Eskubian)
+            // BOTOI BIKOITZA (QR Ezkerrean - AI Eskubian)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -228,22 +228,28 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                 horizontalArrangement = Arrangement.SpaceBetween, // Muturretara banandu
                 verticalAlignment = Alignment.Bottom
             ) {
-                // EZKERRA: QR ESKANERRA (Urdin Iluna)
-                FloatingActionButton(
-                    onClick = {
-                        scanner.startScan()
-                            .addOnSuccessListener { barcode ->
-                                barcode.rawValue?.let { json ->
-                                    viewModel.handleScannedQr(json)
-                                }
-                            }
-                    },
-                    containerColor = Color(0xFF1E3C72), // Urdin ilun dotorea
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                    modifier = Modifier.size(56.dp)
+                AnimatedVisibility(
+                    visible = !showChatOverlay,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
                 ) {
-                    Icon(Icons.Rounded.QrCodeScanner, contentDescription = "Eskaneatu")
+                    // EZKERRA: QR ESKANERRA (Urdin Iluna)
+                    FloatingActionButton(
+                        onClick = {
+                            scanner.startScan()
+                                .addOnSuccessListener { barcode ->
+                                    barcode.rawValue?.let { json ->
+                                        viewModel.handleScannedQr(json)
+                                    }
+                                }
+                        },
+                        containerColor = Color(0xFF1E3C72), // Urdin ilun dotorea
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(Icons.Rounded.QrCodeScanner, contentDescription = "Eskaneatu")
+                    }
                 }
 
                 // ESKUBIA: AI AGENTEA (Urdin Argia - Lehen bezala)
@@ -265,6 +271,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
                 }
             }
         }
+
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
 
@@ -368,7 +375,7 @@ fun WeatherDashboardContent(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // HOBEKUNTZA 2: Goiburua eta Badge-a
+        // Goiburua eta Badge-a
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -409,7 +416,12 @@ fun WeatherDashboardContent(
                         Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
                     }
                 }
-                is Resource.Error -> Text("⚠️ AI Laguntzailea ez dago erabilgarri.", color = Color(0xFFFFB74D), fontSize = 14.sp)
+                is Resource.Error -> Text(
+                    text = "⚠️ ${recommendationState.message ?: "Errore ezezaguna"}",
+                    color = Color(0xFFFFB74D),
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp
+                )
                 is Resource.Success -> {
                     val insight = recommendationState.data
                     Column(horizontalAlignment = Alignment.Start) {
@@ -492,7 +504,7 @@ fun WeatherDashboardContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // HOBEKUNTZA 3: UI Malgua (Grid-a)
+        // UI Malgua (Grid-a)
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), // Padding txiki bat kanpoan
             horizontalArrangement = Arrangement.spacedBy(16.dp) // Txartelen arteko tartea
@@ -513,8 +525,8 @@ fun WeatherDashboardContent(
 
         Text("Hurrengo Egunak", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.align(Alignment.Start))
         Spacer(modifier = Modifier.height(8.dp))
-        FiveDayForecastUI(forecastList = weather.forecast) // <--- PASATU DATUAK HEMEN
-        Spacer(modifier = Modifier.height(32.dp))
+        FiveDayForecastUI(forecastList = weather.forecast)
+        Spacer(modifier = Modifier.height(46.dp))
     }
 }
 
@@ -675,8 +687,8 @@ fun AskAgentOverlay(
                     focusedIndicatorColor = Color(0xFF4FC3F7),
                     unfocusedIndicatorColor = Color.White.copy(alpha = 0.3f),
                     cursorColor = Color(0xFF4FC3F7),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black
                 ),
                 shape = CircleShape,
                 modifier = Modifier.fillMaxWidth()
